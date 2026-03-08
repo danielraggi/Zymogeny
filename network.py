@@ -453,13 +453,32 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
           "notes": "Common ancestor of British and American ale strains"})
     _div("beer1_ale_core", "beer1_british_us")
 
-    # British ale subclade
+    # British ale subclade — contains several distinct subgroups
     _add({"id": "beer1_british", "type": "population",
           "display_name": "Beer 1 — British ale", "is_hybrid": False,
           "fermentation": ["ale"], "wild": False,
           "geography": ["UK", "Ireland"],
-          "notes": "Whitbread B family and relatives"})
+          "notes": "British ale strains; multiple subgroups including "
+                   "Whitbread B, Brakspear/Burton, and others"})
     _div("beer1_british_us", "beer1_british")
+
+    # Whitbread B subgroup within British ale
+    _add({"id": "brit_whitbread", "type": "population",
+          "display_name": "Whitbread B family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["UK"],
+          "notes": "Perhaps the most important group of British industrial "
+                   "yeasts; includes Fullers, Gale's/Hales lineage"})
+    _div("beer1_british", "brit_whitbread")
+
+    # Brakspear / Burton subgroup within British ale
+    _add({"id": "brit_brakspear", "type": "population",
+          "display_name": "Brakspear / Burton family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["UK"],
+          "notes": "Brakspear (via Marston's) lineage; derived from Mann "
+                   "yeast widely used across SE England / Greene King"})
+    _div("beer1_british", "brit_brakspear")
 
     # American ale subclade (diverged from British subclade)
     _add({"id": "beer1_american", "type": "population",
@@ -474,23 +493,39 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
     # ── Specific strains (Level 3: strain nodes under subclusters) ───
 
     strains = [
-        # British ale
-        {"id": "WLP002", "type": "strain", "parent": "beer1_british",
+        # British ale — Whitbread B family
+        {"id": "WLP002", "type": "strain", "parent": "brit_whitbread",
          "display_name": "WLP002 English Ale",
          "fermentation": ["ale"], "geography": ["UK"],
          "notes": "Fullers; Whitbread B family; WY1968 equivalent"},
+        {"id": "WLP007", "type": "strain", "parent": "brit_whitbread",
+         "display_name": "WLP007 Dry English Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Whitbread B family"},
+
+        # British ale — Brakspear / Burton family
+        {"id": "WLP023", "type": "strain", "parent": "brit_brakspear",
+         "display_name": "WLP023 Burton Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Brakspear / Marston's origin; WY1275 Thames Valley equivalent"},
+        {"id": "WY1275", "type": "strain", "parent": "brit_brakspear",
+         "display_name": "WY1275 Thames Valley",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Brakspear via Marston's; close to WLP023"},
+
+        # British ale — other British strains (not tightly clustered)
         {"id": "WLP004", "type": "strain", "parent": "beer1_british",
          "display_name": "WLP004 Irish Stout",
          "fermentation": ["ale"], "geography": ["Ireland"],
          "notes": "Guinness strain"},
-        {"id": "WLP007", "type": "strain", "parent": "beer1_british",
-         "display_name": "WLP007 Dry English Ale",
-         "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "Whitbread B family"},
         {"id": "WLP013", "type": "strain", "parent": "beer1_british",
          "display_name": "WLP013 London Ale",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "London brewery origin"},
+         "notes": "London brewery origin; clusters near WLP006 Bedford"},
+        {"id": "WLP028", "type": "strain", "parent": "beer1_british",
+         "display_name": "WLP028 Edinburgh Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "McEwan's origin; distant from WY1728 despite shared attribution"},
 
         # American ale
         {"id": "WLP001", "type": "strain", "parent": "beer1_american",
