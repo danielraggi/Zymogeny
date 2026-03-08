@@ -288,6 +288,131 @@ def build_species_network() -> nx.DiGraph:
     return G
 
 
+def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
+    """Add Level 2: S. cerevisiae population nodes and introgression edges."""
+
+    populations = [
+        {
+            "id": "pop_beer1",
+            "type": "population",
+            "display_name": "Beer 1",
+            "is_hybrid": False,
+            "fermentation": ["ale"],
+            "wild": False,
+            "geography": ["Europe", "Global"],
+            "notes": "British, Belgian abbey, many craft strains; largest domesticated ale cluster",
+        },
+        {
+            "id": "pop_beer2",
+            "type": "population",
+            "display_name": "Beer 2",
+            "is_hybrid": False,
+            "fermentation": ["ale"],
+            "wild": False,
+            "geography": ["Belgium", "Europe"],
+            "notes": "Belgian saison, wheat beer; distinct from Beer 1",
+        },
+        {
+            "id": "pop_wine",
+            "type": "population",
+            "display_name": "Wine / European",
+            "is_hybrid": False,
+            "fermentation": ["wine", "bread"],
+            "wild": False,
+            "geography": ["Europe", "Global"],
+            "notes": "Largest overall cluster; includes many commercial wine yeasts",
+        },
+        {
+            "id": "pop_sake",
+            "type": "population",
+            "display_name": "Sake",
+            "is_hybrid": False,
+            "fermentation": ["sake"],
+            "wild": False,
+            "geography": ["Japan"],
+            "notes": "",
+        },
+        {
+            "id": "pop_west_african",
+            "type": "population",
+            "display_name": "West African",
+            "is_hybrid": False,
+            "fermentation": ["palm wine"],
+            "wild": False,
+            "geography": ["West Africa"],
+            "notes": "Palm wine, local fermentation",
+        },
+        {
+            "id": "pop_malaysian",
+            "type": "population",
+            "display_name": "Malaysian",
+            "is_hybrid": False,
+            "fermentation": [],
+            "wild": True,
+            "geography": ["Southeast Asia"],
+            "notes": "Wild/fermentation",
+        },
+        {
+            "id": "pop_north_american",
+            "type": "population",
+            "display_name": "North American",
+            "is_hybrid": False,
+            "fermentation": [],
+            "wild": True,
+            "geography": ["North America"],
+            "notes": "Wild",
+        },
+        {
+            "id": "pop_farmhouse",
+            "type": "population",
+            "display_name": "Farmhouse (European landrace)",
+            "is_hybrid": False,
+            "fermentation": ["farmhouse ale"],
+            "wild": False,
+            "geography": ["Norway", "Baltics"],
+            "notes": "Kveik, Lithuanian, Latvian; mixed Beer 1 + Asian domesticated ancestry; Preiss et al. 2024",
+        },
+        {
+            "id": "pop_wild",
+            "type": "population",
+            "display_name": "Wild (root lineages)",
+            "is_hybrid": False,
+            "fermentation": [],
+            "wild": True,
+            "geography": ["Global"],
+            "notes": "Oldest lineages; highest genetic diversity; at root of S. cerevisiae tree",
+        },
+        {
+            "id": "pop_chicha",
+            "type": "population",
+            "display_name": "Andean chicha",
+            "is_hybrid": False,
+            "fermentation": ["chicha"],
+            "wild": False,
+            "geography": ["Ecuador", "Peru"],
+            "notes": "Chicha (maize beer); related to Mexican agave and French Guiana strains; carries STA1 diastatic gene",
+        },
+    ]
+
+    for pop in populations:
+        G.add_node(pop["id"], **pop)
+        G.add_edge("S_cerevisiae", pop["id"],
+                    type="divergence",
+                    admixture_fraction=None,
+                    divergence_mya=None,
+                    confidence="high")
+
+    # Introgression from S. paradoxus into Neotropical S. cerevisiae populations
+    # (notably enriched in Andean chicha strains)
+    G.add_edge("S_paradoxus", "pop_chicha",
+               type="introgression",
+               admixture_fraction=None,
+               divergence_mya=None,
+               confidence="medium")
+
+    return G
+
+
 def to_extended_newick(G: nx.DiGraph) -> str:
     """Export the network to Extended Newick (Rich Newick) format.
 
@@ -351,9 +476,11 @@ def print_summary(G: nx.DiGraph):
     species = [n for n, d in G.nodes(data=True) if d.get("type") == "species"]
     hybrids = [n for n, d in G.nodes(data=True) if d.get("type") == "hybrid"]
     ancestors = [n for n, d in G.nodes(data=True) if d.get("type") == "ancestor"]
+    populations = [n for n, d in G.nodes(data=True) if d.get("type") == "population"]
 
     print(f"Nodes: {G.number_of_nodes()} "
-          f"({len(species)} species, {len(hybrids)} hybrids, {len(ancestors)} ancestors)")
+          f"({len(species)} species, {len(hybrids)} hybrids, "
+          f"{len(populations)} populations, {len(ancestors)} ancestors)")
     print(f"Edges: {G.number_of_edges()}")
 
     div_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "divergence"]
@@ -445,6 +572,10 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
             else:
                 parts = name.split()
                 labels[node] = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        elif ntype == "population":
+            node_colors.append("#27AE60")
+            node_sizes.append(500)
+            labels[node] = data.get("display_name", node)
         else:  # ancestor
             node_colors.append("#95A5A6")
             node_sizes.append(200)
@@ -487,6 +618,7 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
     legend_items = [
         mpatches.Patch(color="#4A90D9", label="Species"),
         mpatches.Patch(color="#E74C3C", label="Hybrid"),
+        mpatches.Patch(color="#27AE60", label="Population"),
         mpatches.Patch(color="#95A5A6", label="Ancestor"),
         plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence"),
         plt.Line2D([0], [0], color="#E74C3C", lw=1.5, ls="--", label="Hybridisation"),
@@ -494,7 +626,7 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
     ]
     ax.legend(handles=legend_items, loc="lower left", fontsize=8)
 
-    ax.set_title("Saccharomyces Species Network (Level 1)", fontsize=14, fontweight="bold")
+    ax.set_title("Saccharomyces Phylogenetic Network", fontsize=14, fontweight="bold")
     ax.axis("off")
     plt.tight_layout()
     plt.savefig(outfile, dpi=150, bbox_inches="tight")
@@ -543,6 +675,17 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             else:
                 parts = name.split()
                 label = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        elif ntype == "population":
+            color = "#27AE60"
+            size = 18
+            label = name
+            title = f"<b>{name}</b><br>{notes}"
+            ferm = data.get("fermentation", [])
+            geo = data.get("geography", [])
+            if ferm:
+                title += f"<br>Fermentation: {', '.join(ferm)}"
+            if geo:
+                title += f"<br>Geography: {', '.join(geo)}"
         else:  # ancestor
             color = "#95A5A6"
             size = 8
@@ -583,6 +726,7 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
 
 if __name__ == "__main__":
     G = build_species_network()
+    add_population_nodes(G)
     print_summary(G)
     print(f"\nExtended Newick:\n{to_extended_newick(G)}")
     plot_static(G)
