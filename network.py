@@ -408,6 +408,50 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
     _intro("anc_asian_domestic", "pop_beer1", confidence="high")
 
     # ── Beer 1 subclusters ───────────────────────────────────────────
+    # Branching order from Gallone et al. 2016/2019 time-calibrated
+    # phylogeny of Beer 1:
+    #   pop_beer1
+    #   ├── beer1_wheat (basal; wheat beer + lager S. cerevisiae parent)
+    #   └── beer1_ale_core
+    #       ├── beer1_belgian (continental European)
+    #       └── beer1_british_us
+    #           ├── beer1_british
+    #           └── beer1_american (diverged from British during colonisation)
+
+    # German wheat beer — basal in Beer 1 (sister to all other ale strains;
+    # the S. cerevisiae parent of lager yeasts branches from here too)
+    _add({"id": "beer1_wheat", "type": "population",
+          "display_name": "Beer 1 — wheat beer", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Germany"],
+          "notes": "German Hefeweizen strains; basal in Beer 1; the "
+                   "S. cerevisiae parent of lager hybrids branches from "
+                   "near this subclade; POF+ (4-vinylguaiacol)"})
+    _div("pop_beer1", "beer1_wheat")
+
+    # Core ale clade (after wheat beer splits off)
+    _add({"id": "beer1_ale_core", "type": "ancestor",
+          "display_name": "beer1_ale_core", "is_hybrid": False,
+          "fermentation": [], "wild": False,
+          "geography": ["Europe"],
+          "notes": "Ancestor of continental European and British/US ale strains"})
+    _div("pop_beer1", "beer1_ale_core")
+
+    # Belgian / continental European subclade
+    _add({"id": "beer1_belgian", "type": "population",
+          "display_name": "Beer 1 — Belgian / German ale", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Belgium", "Germany"],
+          "notes": "Belgian abbey, Trappist, Kölsch, Altbier strains"})
+    _div("beer1_ale_core", "beer1_belgian")
+
+    # British + US ancestor
+    _add({"id": "beer1_british_us", "type": "ancestor",
+          "display_name": "beer1_british_us", "is_hybrid": False,
+          "fermentation": [], "wild": False,
+          "geography": ["UK"],
+          "notes": "Common ancestor of British and American ale strains"})
+    _div("beer1_ale_core", "beer1_british_us")
 
     # British ale subclade
     _add({"id": "beer1_british", "type": "population",
@@ -415,31 +459,17 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
           "fermentation": ["ale"], "wild": False,
           "geography": ["UK", "Ireland"],
           "notes": "Whitbread B family and relatives"})
-    _div("pop_beer1", "beer1_british")
+    _div("beer1_british_us", "beer1_british")
 
-    # Belgian ale subclade
-    _add({"id": "beer1_belgian", "type": "population",
-          "display_name": "Beer 1 — Belgian ale", "is_hybrid": False,
-          "fermentation": ["ale"], "wild": False,
-          "geography": ["Belgium"],
-          "notes": "Belgian abbey and Trappist strains"})
-    _div("pop_beer1", "beer1_belgian")
-
-    # American ale subclade (derived from British/Belgian strains)
+    # American ale subclade (diverged from British subclade)
     _add({"id": "beer1_american", "type": "population",
           "display_name": "Beer 1 — American ale", "is_hybrid": False,
           "fermentation": ["ale"], "wild": False,
           "geography": ["North America", "Global"],
-          "notes": "Chico/BRY-97 family; derived from British/Belgian strains"})
-    _div("pop_beer1", "beer1_american")
-
-    # German ale subclade
-    _add({"id": "beer1_german", "type": "population",
-          "display_name": "Beer 1 — German ale", "is_hybrid": False,
-          "fermentation": ["ale"], "wild": False,
-          "geography": ["Germany"],
-          "notes": "Kölsch, Altbier, and German wheat beer strains"})
-    _div("pop_beer1", "beer1_german")
+          "notes": "Chico/BRY-97 family; diverged from British subclade "
+                   "during colonisation era; Ballantine → Siebel → "
+                   "Sierra Nevada lineage"})
+    _div("beer1_british_us", "beer1_american")
 
     # ── Specific strains (Level 3: strain nodes under subclusters) ───
 
@@ -494,19 +524,21 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
          "fermentation": ["ale"], "geography": ["Belgium"],
          "notes": "Chimay origin; WY1214 equivalent"},
 
-        # German ale
-        {"id": "WLP300", "type": "strain", "parent": "beer1_german",
+        # German wheat beer (basal Beer 1)
+        {"id": "WLP300", "type": "strain", "parent": "beer1_wheat",
          "display_name": "WLP300 Hefeweizen",
          "fermentation": ["ale"], "geography": ["Germany"],
          "notes": "German wheat beer; POF+ (produces 4-vinylguaiacol)"},
-        {"id": "WLP003", "type": "strain", "parent": "beer1_german",
+
+        # Continental European (Belgian / German ale)
+        {"id": "WLP003", "type": "strain", "parent": "beer1_belgian",
          "display_name": "WLP003 German Ale II",
          "fermentation": ["ale"], "geography": ["Germany"],
          "notes": "WY1007 equivalent"},
-        {"id": "WLP029", "type": "strain", "parent": "beer1_german",
+        {"id": "WLP029", "type": "strain", "parent": "beer1_belgian",
          "display_name": "WLP029 German Ale / Kölsch",
          "fermentation": ["ale"], "geography": ["Germany"],
-         "notes": "Kölsch-style; actually a lager-ale hybrid position in tree"},
+         "notes": "Kölsch-style"},
     ]
 
     for s in strains:
