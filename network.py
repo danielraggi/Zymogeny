@@ -95,10 +95,10 @@ def build_species_network() -> nx.DiGraph:
             "type": "species",
             "display_name": "Saccharomyces cerevisiae",
             "is_hybrid": False,
-            "fermentation": ["ale", "wine", "bread", "sake"],
+            "fermentation": [],
             "wild": False,
             "geography": ["Global"],
-            "notes": "Primary domesticated fermentation yeast",
+            "notes": "Species node; fermentation associations are on population-level nodes below",
         },
     ]
 
