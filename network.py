@@ -1136,15 +1136,55 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
             parent_depths = [depths[p] for p in G.predecessors(node) if p in depths]
             depths[node] = max(parent_depths) + 1 if parent_depths else 0
 
-    # Group nodes by depth, assign x positions
+    # Group nodes by depth, then apply barycenter heuristic to minimise
+    # edge crossings before assigning x positions.
     from collections import defaultdict
     by_depth = defaultdict(list)
     for node, d in depths.items():
         by_depth[d].append(node)
 
-    pos = {}
     max_depth = max(depths.values()) if depths else 0
-    for d, nodes in by_depth.items():
+
+    # Initial ordering: alphabetical for determinism
+    for d in by_depth:
+        by_depth[d].sort()
+
+    order = {}
+    for d in range(max_depth + 1):
+        for i, node in enumerate(by_depth[d]):
+            order[node] = i
+
+    def _nbrs_at_level(node, target):
+        nbrs = []
+        for p in G.predecessors(node):
+            if depths.get(p) == target:
+                nbrs.append(p)
+        for c in G.successors(node):
+            if depths.get(c) == target:
+                nbrs.append(c)
+        return nbrs
+
+    for _ in range(8):
+        for d in range(1, max_depth + 1):
+            bc = {}
+            for node in by_depth[d]:
+                nbrs = _nbrs_at_level(node, d - 1)
+                bc[node] = sum(order[n] for n in nbrs) / len(nbrs) if nbrs else order[node]
+            by_depth[d].sort(key=lambda n: bc[n])
+            for i, node in enumerate(by_depth[d]):
+                order[node] = i
+        for d in range(max_depth - 1, -1, -1):
+            bc = {}
+            for node in by_depth[d]:
+                nbrs = _nbrs_at_level(node, d + 1)
+                bc[node] = sum(order[n] for n in nbrs) / len(nbrs) if nbrs else order[node]
+            by_depth[d].sort(key=lambda n: bc[n])
+            for i, node in enumerate(by_depth[d]):
+                order[node] = i
+
+    pos = {}
+    for d in range(max_depth + 1):
+        nodes = by_depth[d]
         n = len(nodes)
         for i, node in enumerate(nodes):
             x = (i - (n - 1) / 2) * 2.5
@@ -1269,39 +1309,33 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
 
     net = Network(height="800px", width="100%", directed=True, notebook=False)
 
-    # Use hierarchical layout so the DAG flows top-to-bottom (poset style)
+    # Disable automatic layout — we compute our own positions for
+    # poset-style display with minimised edge crossings.
     net.set_options("""
     {
       "layout": {
         "hierarchical": {
-          "enabled": true,
-          "direction": "UD",
-          "sortMethod": "directed",
-          "levelSeparation": 150,
-          "nodeSpacing": 200,
-          "treeSpacing": 250,
-          "shakeTowards": "roots"
+          "enabled": false
         }
       },
       "physics": {
-        "hierarchicalRepulsion": {
-          "centralGravity": 0.0,
-          "springLength": 150,
-          "springConstant": 0.01,
-          "nodeDistance": 200,
-          "damping": 0.09
-        }
+        "enabled": false
       },
       "edges": {
         "smooth": {
           "type": "cubicBezier",
           "forceDirection": "vertical"
         }
+      },
+      "interaction": {
+        "dragNodes": true,
+        "zoomView": true,
+        "dragView": true
       }
     }
     """)
 
-    # Compute depth levels for hierarchical layout (same logic as plot_static)
+    # Compute depth levels (same logic as plot_static)
     depths = {}
     def _assign_depth(node, d=0):
         if node not in depths or d < depths[node]:
@@ -1319,6 +1353,77 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
         if node not in depths:
             parent_depths = [depths[p] for p in G.predecessors(node) if p in depths]
             depths[node] = max(parent_depths) + 1 if parent_depths else 0
+
+    # --- Barycenter heuristic to minimise edge crossings ---
+    from collections import defaultdict
+
+    by_level = defaultdict(list)
+    for node, d in depths.items():
+        by_level[d].append(node)
+    max_level = max(depths.values()) if depths else 0
+
+    # Initial ordering: sort each level alphabetically for determinism
+    for d in by_level:
+        by_level[d].sort()
+
+    # Assign initial x index within each level
+    order = {}  # node -> position index within its level
+    for d in range(max_level + 1):
+        for i, node in enumerate(by_level[d]):
+            order[node] = i
+
+    # Run barycenter sweeps (down then up) to reduce crossings
+    def _neighbours_in_level(node, target_level):
+        """Get all graph neighbours of node that sit at target_level."""
+        nbrs = []
+        for p in G.predecessors(node):
+            if depths.get(p) == target_level:
+                nbrs.append(p)
+        for c in G.successors(node):
+            if depths.get(c) == target_level:
+                nbrs.append(c)
+        return nbrs
+
+    for _sweep in range(8):
+        # Down sweep: for each level (top to bottom), reorder by
+        # average position of neighbours in the level above.
+        for d in range(1, max_level + 1):
+            barycenters = {}
+            for node in by_level[d]:
+                nbrs = _neighbours_in_level(node, d - 1)
+                if nbrs:
+                    barycenters[node] = sum(order[n] for n in nbrs) / len(nbrs)
+                else:
+                    barycenters[node] = order[node]
+            by_level[d].sort(key=lambda n: barycenters[n])
+            for i, node in enumerate(by_level[d]):
+                order[node] = i
+
+        # Up sweep: for each level (bottom to top), reorder by
+        # average position of neighbours in the level below.
+        for d in range(max_level - 1, -1, -1):
+            barycenters = {}
+            for node in by_level[d]:
+                nbrs = _neighbours_in_level(node, d + 1)
+                if nbrs:
+                    barycenters[node] = sum(order[n] for n in nbrs) / len(nbrs)
+                else:
+                    barycenters[node] = order[node]
+            by_level[d].sort(key=lambda n: barycenters[n])
+            for i, node in enumerate(by_level[d]):
+                order[node] = i
+
+    # Convert ordering to (x, y) pixel positions
+    node_spacing = 200
+    level_separation = 150
+    positions = {}
+    for d in range(max_level + 1):
+        nodes = by_level[d]
+        n = len(nodes)
+        for i, node in enumerate(nodes):
+            x = (i - (n - 1) / 2) * node_spacing
+            y = d * level_separation
+            positions[node] = (x, y)
 
     # Add nodes
     for node, data in G.nodes(data=True):
@@ -1399,8 +1504,10 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             label = ""
             title = data.get("display_name", node)
 
+        px, py = positions.get(node, (0, 0))
         net.add_node(node, label=label, title=title, color=color,
-                     size=size, font={"size": 10}, level=depths.get(node, 0))
+                     size=size, font={"size": 10}, x=px, y=py,
+                     fixed={"x": False, "y": True})
 
     # Add edges
     for u, v, data in G.edges(data=True):
