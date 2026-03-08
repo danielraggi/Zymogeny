@@ -372,27 +372,39 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
             "geography": ["Norway", "Baltics"],
             "notes": "Kveik, Lithuanian, Latvian; mixed Beer 1 + Asian domesticated ancestry; Preiss et al. 2024",
         },
-        {
-            "id": "pop_wild",
-            "type": "population",
-            "display_name": "Wild (root lineages)",
-            "is_hybrid": False,
-            "fermentation": [],
-            "wild": True,
-            "geography": ["Global"],
-            "notes": "Oldest lineages; highest genetic diversity; at root of S. cerevisiae tree",
-        },
-        {
-            "id": "pop_chicha",
-            "type": "population",
-            "display_name": "Andean chicha",
-            "is_hybrid": False,
-            "fermentation": ["chicha"],
-            "wild": False,
-            "geography": ["Ecuador", "Peru"],
-            "notes": "Chicha (maize beer); related to Mexican agave and French Guiana strains; carries STA1 diastatic gene",
-        },
     ]
+
+    # Wild basal lineages — separate node type
+    wild_node = {
+        "id": "wild_basal",
+        "type": "wild",
+        "display_name": "Wild S. cerevisiae (basal lineages)",
+        "is_hybrid": False,
+        "fermentation": [],
+        "wild": True,
+        "geography": ["East Asia", "Global"],
+        "notes": "Extant wild isolates representing the deepest S. cerevisiae diversity; "
+                 "mainly East Asian (China); paraphyletic — all domesticated lineages "
+                 "emerge from within this wild diversity",
+    }
+    G.add_node(wild_node["id"], **wild_node)
+    G.add_edge("S_cerevisiae", wild_node["id"],
+               type="divergence",
+               admixture_fraction=None,
+               divergence_mya=None,
+               confidence="high")
+
+    chicha = {
+        "id": "pop_chicha",
+        "type": "population",
+        "display_name": "Andean chicha",
+        "is_hybrid": False,
+        "fermentation": ["chicha"],
+        "wild": False,
+        "geography": ["Ecuador", "Peru"],
+        "notes": "Chicha (maize beer); related to Mexican agave and French Guiana strains; carries STA1 diastatic gene",
+    }
+    populations.append(chicha)
 
     for pop in populations:
         G.add_node(pop["id"], **pop)
@@ -477,10 +489,12 @@ def print_summary(G: nx.DiGraph):
     hybrids = [n for n, d in G.nodes(data=True) if d.get("type") == "hybrid"]
     ancestors = [n for n, d in G.nodes(data=True) if d.get("type") == "ancestor"]
     populations = [n for n, d in G.nodes(data=True) if d.get("type") == "population"]
+    wilds = [n for n, d in G.nodes(data=True) if d.get("type") == "wild"]
 
     print(f"Nodes: {G.number_of_nodes()} "
           f"({len(species)} species, {len(hybrids)} hybrids, "
-          f"{len(populations)} populations, {len(ancestors)} ancestors)")
+          f"{len(populations)} populations, {len(wilds)} wild, "
+          f"{len(ancestors)} ancestors)")
     print(f"Edges: {G.number_of_edges()}")
 
     div_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "divergence"]
@@ -576,6 +590,10 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
             node_colors.append("#27AE60")
             node_sizes.append(500)
             labels[node] = data.get("display_name", node)
+        elif ntype == "wild":
+            node_colors.append("#8E44AD")
+            node_sizes.append(600)
+            labels[node] = data.get("display_name", node)
         else:  # ancestor
             node_colors.append("#95A5A6")
             node_sizes.append(200)
@@ -619,6 +637,7 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
         mpatches.Patch(color="#4A90D9", label="Species"),
         mpatches.Patch(color="#E74C3C", label="Hybrid"),
         mpatches.Patch(color="#27AE60", label="Population"),
+        mpatches.Patch(color="#8E44AD", label="Wild"),
         mpatches.Patch(color="#95A5A6", label="Ancestor"),
         plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence"),
         plt.Line2D([0], [0], color="#E74C3C", lw=1.5, ls="--", label="Hybridisation"),
@@ -684,6 +703,14 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             geo = data.get("geography", [])
             if ferm:
                 title += f"<br>Fermentation: {', '.join(ferm)}"
+            if geo:
+                title += f"<br>Geography: {', '.join(geo)}"
+        elif ntype == "wild":
+            color = "#8E44AD"
+            size = 22
+            label = name
+            title = f"<b>{name}</b><br>{notes}"
+            geo = data.get("geography", [])
             if geo:
                 title += f"<br>Geography: {', '.join(geo)}"
         else:  # ancestor
