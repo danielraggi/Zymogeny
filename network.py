@@ -973,6 +973,23 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
         _add(s)
         _div(parent, s["id"], confidence=conf)
 
+    # ── WLP838: marketed as lager but genetically pure S. cerevisiae ─
+    _add({
+        "id": "WLP838",
+        "type": "strain",
+        "display_name": "WLP838 Southern German Lager",
+        "is_hybrid": False,
+        "fermentation": ["lager"],
+        "wild": False,
+        "geography": ["Germany"],
+        "notes": "Marketed as a lager yeast but PCR and genomic analysis "
+                 "show it is pure S. cerevisiae, NOT a S. pastorianus hybrid; "
+                 "cannot grow at 37°C despite being S. cerevisiae; exact "
+                 "position in S. cerevisiae tree unknown",
+        "evidence": "sequenced",
+    })
+    _div("S_cerevisiae", "WLP838", confidence="medium")
+
     # ── Andean chicha ────────────────────────────────────────────────
     _add({"id": "pop_chicha", "type": "population",
           "display_name": "Andean chicha", "is_hybrid": False,
@@ -1178,7 +1195,35 @@ def add_lager_nodes(G: nx.DiGraph) -> nx.DiGraph:
         {"id": "S23", "parent": "lager_frohberg",
          "display_name": "Fermentis SafLager S-23", "evidence": "sequenced",
          "fermentation": ["lager"], "geography": ["Germany"],
-         "notes": "Dry lager strain; Frohberg lineage", "confidence": "high"},
+         "notes": "Dry lager strain; Berlin origin; genetically close to "
+                  "Urquell H-strain; Frohberg lineage",
+         "confidence": "high"},
+        {"id": "WLP815", "parent": "lager_frohberg",
+         "display_name": "WLP815 Belgian Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Belgium"],
+         "notes": "Belgian lager strain; Frohberg lineage",
+         "confidence": "high"},
+        {"id": "WLP862", "parent": "lager_frohberg",
+         "display_name": "WLP862 Cry Havoc", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["North America"],
+         "notes": "Unusual temperature-versatile strain (ale and lager "
+                  "range); Frohberg lineage",
+         "confidence": "high"},
+        {"id": "WY2042", "parent": "lager_frohberg",
+         "display_name": "WY2042 Danish Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Denmark"],
+         "notes": "Possibly Carlsberg-derived; classification as Saaz vs "
+                  "Frohberg uncertain; placed here conservatively",
+         "confidence": "medium"},
+
+        # ── Saaz (Group I) strains ─────────────────────────────────
+        {"id": "WLP850", "parent": "lager_saaz",
+         "display_name": "WLP850 Copenhagen Lager", "evidence": "inferred",
+         "fermentation": ["lager"], "geography": ["Denmark"],
+         "notes": "Believed to derive from Hansen's original 1883 Carlsberg "
+                  "isolate (S. carlsbergensis); one of very few potentially "
+                  "Saaz-type commercial strains; allotriploid",
+         "confidence": "medium"},
     ]
 
     for s in strains:
