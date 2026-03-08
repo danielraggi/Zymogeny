@@ -988,6 +988,218 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
     return G
 
 
+def add_lager_nodes(G: nx.DiGraph) -> nx.DiGraph:
+    """Add S. pastorianus (lager yeast) population subgraph.
+
+    Topology based on Gallone et al. (2019), Monerawela & Bond (2017),
+    Okuno et al. (2016), and the Suregork family tree (Oct 2019).
+    S. pastorianus is divided into two lineages (Saaz/Group I and
+    Frohberg/Group II), likely from separate hybridisation events
+    involving different S. cerevisiae parents.  All commercially
+    available lager strains are Frohberg.
+    """
+
+    def _add(node_dict):
+        G.add_node(node_dict["id"], **node_dict)
+
+    def _div(parent, child, confidence="high"):
+        G.add_edge(parent, child, type="divergence",
+                   admixture_fraction=None, divergence_mya=None,
+                   confidence=confidence)
+
+    # ── Two major lineages ─────────────────────────────────────────────
+    _add({
+        "id": "lager_saaz",
+        "type": "population",
+        "display_name": "Saaz (Group I)",
+        "is_hybrid": False,
+        "fermentation": ["lager"],
+        "wild": False,
+        "geography": ["Bohemia"],
+        "notes": "Allotriploid (1 Sc + 2 Se); slow-fermenting; cannot use "
+                 "maltotriose; lost S. cerevisiae chromosomes III, VI, XII; "
+                 "no commercial strains available; reference strains CBS 1503 "
+                 "(S. monacensis), CBS 1513 (S. carlsbergensis), CBS 1538; "
+                 "two sub-lineages based on distinct POF gene losses",
+    })
+    _div("S_pastorianus", "lager_saaz")
+
+    _add({
+        "id": "lager_frohberg",
+        "type": "population",
+        "display_name": "Frohberg (Group II)",
+        "is_hybrid": False,
+        "fermentation": ["lager"],
+        "wild": False,
+        "geography": ["Germany", "Global"],
+        "notes": "Allotetraploid (2 Sc + 2 Se); faster fermenting; uses "
+                 "maltotriose; includes all modern commercial lager strains; "
+                 "shares FDC1 1-bp insertion with Beer 1 (POF-); S. cerevisiae "
+                 "parent from Beer 1 wheat beer lineage; named after Frohberg's "
+                 "brewery at Grimma, Saxony",
+    })
+    _div("S_pastorianus", "lager_frohberg")
+
+    # ── Frohberg sub-clusters ──────────────────────────────────────────
+    # Based on genome sequencing (Gallone et al. 2016/2019, Suregork
+    # family tree), Frohberg strains show very low diversity compared to
+    # ales, but several sub-clusters can be identified.
+
+    # W-34/70 lineage — the most widely used industrial lager strain
+    _add({
+        "id": "frohberg_w3470",
+        "type": "population",
+        "display_name": "W-34/70 lineage",
+        "is_hybrid": False,
+        "fermentation": ["lager"],
+        "wild": False,
+        "geography": ["Germany", "Global"],
+        "notes": "Weihenstephan 34/70 cluster; the dominant industrial lager "
+                 "strain worldwide; WY2035 and WLP810 are closest relatives",
+    })
+    _div("lager_frohberg", "frohberg_w3470")
+
+    # Czech / Bohemian cluster
+    _add({
+        "id": "frohberg_czech",
+        "type": "population",
+        "display_name": "Czech / Bohemian lager",
+        "is_hybrid": False,
+        "fermentation": ["lager"],
+        "wild": False,
+        "geography": ["Czech Republic"],
+        "notes": "Czech Pilsner strains; Budvar and Urquell lineages; despite "
+                 "Bohemian origin these are Frohberg, not Saaz",
+    })
+    _div("lager_frohberg", "frohberg_czech")
+
+    # ── Specific lager strains ─────────────────────────────────────────
+
+    strains = [
+        # ── W-34/70 lineage ────────────────────────────────────────
+        {"id": "W3470", "parent": "frohberg_w3470",
+         "display_name": "Fermentis SafLager W-34/70", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany", "Global"],
+         "notes": "Weihenstephan 34/70; the most widely used lager strain "
+                  "globally; first lager genome sequenced; reference Frohberg "
+                  "strain; Brewery #34 was Frohberg's brewery in Grimma",
+         "confidence": "high"},
+        {"id": "WLP810", "parent": "frohberg_w3470",
+         "display_name": "WLP810 San Francisco Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["North America"],
+         "notes": "Closely related to W-34/70 based on genome sequencing",
+         "confidence": "high"},
+        {"id": "WY2035", "parent": "frohberg_w3470",
+         "display_name": "WY2035 American Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["North America"],
+         "notes": "Closely related to W-34/70; groups with WY2112 via a "
+                  "common ancestor",
+         "confidence": "high"},
+        {"id": "diamond", "parent": "frohberg_w3470",
+         "display_name": "LalBrew Diamond", "evidence": "inferred",
+         "fermentation": ["lager"], "geography": ["Global"],
+         "notes": "Lallemand dry lager strain; Group II lineage",
+         "confidence": "medium"},
+
+        # ── Czech / Bohemian cluster ───────────────────────────────
+        {"id": "WLP802", "parent": "frohberg_czech",
+         "display_name": "WLP802 Czech Budejovice", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "Budvar / Budweiser Budvar origin", "confidence": "high"},
+        {"id": "WY2000", "parent": "frohberg_czech",
+         "display_name": "WY2000 Budvar", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "Budvar origin", "confidence": "high"},
+        {"id": "WY2001", "parent": "frohberg_czech",
+         "display_name": "WY2001 Urquell", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "Pilsner Urquell H-strain", "confidence": "high"},
+        {"id": "WY2278", "parent": "frohberg_czech",
+         "display_name": "WY2278 Czech Pils", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "Czech Pilsner strain", "confidence": "high"},
+
+        # ── Other Frohberg strains (sub-clustering less certain) ───
+        {"id": "WLP830", "parent": "lager_frohberg",
+         "display_name": "WLP830 German Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Often assumed identical to W-34/70, but genomic data shows "
+                  "they are distinct; commonly purported Weihenstephan origin",
+         "confidence": "high"},
+        {"id": "WLP820", "parent": "lager_frohberg",
+         "display_name": "WLP820 Oktoberfest", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Märzen / Oktoberfest strain", "confidence": "high"},
+        {"id": "WLP833", "parent": "lager_frohberg",
+         "display_name": "WLP833 German Bock", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Bock / strong lager strain", "confidence": "high"},
+        {"id": "WLP840", "parent": "lager_frohberg",
+         "display_name": "WLP840 American Pilsner", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["North America"],
+         "notes": "≈ WY2007 Pilsen based on genomic similarity",
+         "confidence": "high"},
+        {"id": "WY2007", "parent": "lager_frohberg",
+         "display_name": "WY2007 Pilsen Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "≈ WLP840 American Pilsner", "confidence": "high"},
+        {"id": "WY2124", "parent": "lager_frohberg",
+         "display_name": "WY2124 Bohemian Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Czech Republic"],
+         "notes": "NOT equivalent to W-34/70 despite common assumption; "
+                  "genomic testing shows closest to WLP029 Kölsch; cousin "
+                  "of WY2206",
+         "confidence": "high"},
+        {"id": "WY2206", "parent": "lager_frohberg",
+         "display_name": "WY2206 Bavarian Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Cousin of WY2124; Augustiner origin",
+         "confidence": "high"},
+        {"id": "WY2112", "parent": "lager_frohberg",
+         "display_name": "WY2112 California Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["North America"],
+         "notes": "Steam beer / California common; groups with WY2035 via "
+                  "common ancestor; ferments warmer than most lagers",
+         "confidence": "high"},
+        {"id": "WY2308", "parent": "lager_frohberg",
+         "display_name": "WY2308 Munich Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Munich-style lager strain", "confidence": "high"},
+        {"id": "WLP920", "parent": "lager_frohberg",
+         "display_name": "WLP920 Old Bavarian", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Old Bavarian lager strain", "confidence": "high"},
+        {"id": "WLP940", "parent": "lager_frohberg",
+         "display_name": "WLP940 Mexican Lager", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Mexico"],
+         "notes": "Mexican lager strain; Mexican lager brewing tradition "
+                  "descended from German/Austrian immigrant brewers",
+         "confidence": "high"},
+        {"id": "S23", "parent": "lager_frohberg",
+         "display_name": "Fermentis SafLager S-23", "evidence": "sequenced",
+         "fermentation": ["lager"], "geography": ["Germany"],
+         "notes": "Dry lager strain; Frohberg lineage", "confidence": "high"},
+    ]
+
+    for s in strains:
+        parent = s.pop("parent")
+        conf = s.pop("confidence", "high")
+        _add({
+            "id": s["id"],
+            "type": "strain",
+            "display_name": s["display_name"],
+            "is_hybrid": False,
+            "fermentation": s.get("fermentation", []),
+            "wild": False,
+            "geography": s.get("geography", []),
+            "notes": s.get("notes", ""),
+            "evidence": s.get("evidence", ""),
+        })
+        _div(parent, s["id"], confidence=conf)
+
+    return G
+
+
 def to_extended_newick(G: nx.DiGraph) -> str:
     """Export the network to Extended Newick (Rich Newick) format.
 
@@ -1589,6 +1801,7 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
 if __name__ == "__main__":
     G = build_species_network()
     add_population_nodes(G)
+    add_lager_nodes(G)
     print_summary(G)
 
     newick = to_extended_newick(G)
