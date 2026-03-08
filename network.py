@@ -374,7 +374,216 @@ def print_summary(G: nx.DiGraph):
             print(f"    ← {pname}{frac_str} [{edge['type']}]")
 
 
+def plot_static(G: nx.DiGraph, outfile="network.png"):
+    """Render the network as a static matplotlib image."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+
+    fig, ax = plt.subplots(figsize=(16, 10))
+
+    # Hierarchical layout: assign y by depth, spread x within each depth
+    depths = {}
+    def _assign_depth(node, d=0):
+        if node not in depths or d < depths[node]:
+            depths[node] = d
+            for child in G.successors(node):
+                edge = G.edges[node, child]
+                if edge["type"] == "divergence":
+                    _assign_depth(child, d + 1)
+
+    roots = [n for n in G.nodes() if G.in_degree(n) == 0]
+    for r in roots:
+        _assign_depth(r)
+
+    # Hybrids not reached via divergence — place them one level below deepest parent
+    for node in G.nodes():
+        if node not in depths:
+            parent_depths = [depths[p] for p in G.predecessors(node) if p in depths]
+            depths[node] = max(parent_depths) + 1 if parent_depths else 0
+
+    # Group nodes by depth, assign x positions
+    from collections import defaultdict
+    by_depth = defaultdict(list)
+    for node, d in depths.items():
+        by_depth[d].append(node)
+
+    pos = {}
+    max_depth = max(depths.values()) if depths else 0
+    for d, nodes in by_depth.items():
+        n = len(nodes)
+        for i, node in enumerate(nodes):
+            x = (i - (n - 1) / 2) * 2.5
+            y = -d * 2.0
+            pos[node] = (x, y)
+
+    # Colours and sizes by node type
+    node_colors = []
+    node_sizes = []
+    labels = {}
+    for node in G.nodes():
+        data = G.nodes[node]
+        ntype = data.get("type", "")
+        if ntype == "species":
+            node_colors.append("#4A90D9")
+            node_sizes.append(800)
+            # Short label: genus initial + species
+            name = data.get("display_name", node)
+            parts = name.split()
+            labels[node] = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        elif ntype == "hybrid":
+            node_colors.append("#E74C3C")
+            node_sizes.append(600)
+            name = data.get("display_name", node)
+            if "×" in name:
+                labels[node] = name.split("hybrids")[0].strip() if "hybrids" in name else name
+                # Shorten further
+                labels[node] = labels[node].replace("S. cerevisiae", "Sc") \
+                    .replace("S. kudriavzevii", "Sk") \
+                    .replace("S. uvarum", "Su")
+            else:
+                parts = name.split()
+                labels[node] = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        else:  # ancestor
+            node_colors.append("#95A5A6")
+            node_sizes.append(200)
+            labels[node] = ""
+
+    # Draw edges by type
+    div_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "divergence"]
+    hyb_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "hybridisation"]
+    int_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "introgression"]
+
+    nx.draw_networkx_edges(G, pos, edgelist=div_edges, ax=ax,
+                           edge_color="#2C3E50", width=2.0, arrows=True,
+                           arrowsize=15, connectionstyle="arc3,rad=0.0")
+    nx.draw_networkx_edges(G, pos, edgelist=hyb_edges, ax=ax,
+                           edge_color="#E74C3C", width=1.5, style="dashed",
+                           arrows=True, arrowsize=12, connectionstyle="arc3,rad=0.1")
+    nx.draw_networkx_edges(G, pos, edgelist=int_edges, ax=ax,
+                           edge_color="#F39C12", width=1.2, style="dotted",
+                           arrows=True, arrowsize=10, connectionstyle="arc3,rad=0.15")
+
+    # Draw nodes
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_colors,
+                           node_size=node_sizes, edgecolors="white", linewidths=1.5)
+
+    # Labels
+    nx.draw_networkx_labels(G, pos, labels, ax=ax, font_size=7,
+                            font_weight="bold")
+
+    # Edge labels for admixture fractions on hybrid edges
+    hyb_edge_labels = {}
+    for u, v, d in G.edges(data=True):
+        if d["type"] in ("hybridisation", "introgression"):
+            frac = d.get("admixture_fraction")
+            if frac is not None:
+                hyb_edge_labels[(u, v)] = f"{frac:.0%}"
+    nx.draw_networkx_edge_labels(G, pos, hyb_edge_labels, ax=ax,
+                                 font_size=6, font_color="#E74C3C")
+
+    # Legend
+    legend_items = [
+        mpatches.Patch(color="#4A90D9", label="Species"),
+        mpatches.Patch(color="#E74C3C", label="Hybrid"),
+        mpatches.Patch(color="#95A5A6", label="Ancestor"),
+        plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence"),
+        plt.Line2D([0], [0], color="#E74C3C", lw=1.5, ls="--", label="Hybridisation"),
+        plt.Line2D([0], [0], color="#F39C12", lw=1.2, ls=":", label="Introgression"),
+    ]
+    ax.legend(handles=legend_items, loc="lower left", fontsize=8)
+
+    ax.set_title("Saccharomyces Species Network (Level 1)", fontsize=14, fontweight="bold")
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(outfile, dpi=150, bbox_inches="tight")
+    print(f"Static plot saved to {outfile}")
+    plt.close()
+
+
+def plot_interactive(G: nx.DiGraph, outfile="network.html"):
+    """Render the network as an interactive HTML file using pyvis."""
+    from pyvis.network import Network
+
+    net = Network(height="800px", width="100%", directed=True, notebook=False)
+    net.barnes_hut(gravity=-8000, central_gravity=0.3, spring_length=200)
+
+    # Add nodes
+    for node, data in G.nodes(data=True):
+        ntype = data.get("type", "")
+        name = data.get("display_name", node)
+        notes = data.get("notes", "")
+
+        if ntype == "species":
+            color = "#4A90D9"
+            size = 25
+            title = f"<b>{name}</b><br>{notes}"
+            ferm = data.get("fermentation", [])
+            geo = data.get("geography", [])
+            if ferm:
+                title += f"<br>Fermentation: {', '.join(ferm)}"
+            if geo:
+                title += f"<br>Geography: {', '.join(geo)}"
+            parts = name.split()
+            label = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        elif ntype == "hybrid":
+            color = "#E74C3C"
+            size = 20
+            title = f"<b>{name}</b><br>{notes}"
+            ferm = data.get("fermentation", [])
+            if ferm:
+                title += f"<br>Fermentation: {', '.join(ferm)}"
+            if "×" in name:
+                label = name.replace("S. cerevisiae", "Sc") \
+                    .replace("S. kudriavzevii", "Sk") \
+                    .replace("S. uvarum", "Su") \
+                    .replace(" hybrids", "") \
+                    .replace(" triple", "")
+            else:
+                parts = name.split()
+                label = f"{parts[0][0]}. {parts[1]}" if len(parts) >= 2 else name
+        else:  # ancestor
+            color = "#95A5A6"
+            size = 8
+            label = ""
+            title = data.get("display_name", node)
+
+        net.add_node(node, label=label, title=title, color=color,
+                     size=size, font={"size": 10})
+
+    # Add edges
+    for u, v, data in G.edges(data=True):
+        etype = data.get("type", "")
+        frac = data.get("admixture_fraction")
+
+        if etype == "divergence":
+            color = "#2C3E50"
+            width = 2.5
+            dashes = False
+            title = "Divergence"
+        elif etype == "hybridisation":
+            color = "#E74C3C"
+            width = 2.0
+            dashes = True
+            frac_str = f" ({frac:.0%})" if frac is not None else ""
+            title = f"Hybridisation{frac_str}"
+        else:  # introgression
+            color = "#F39C12"
+            width = 1.5
+            dashes = True
+            title = "Introgression"
+
+        net.add_edge(u, v, color=color, width=width, dashes=dashes,
+                     title=title, arrows="to")
+
+    net.save_graph(outfile)
+    print(f"Interactive plot saved to {outfile}")
+
+
 if __name__ == "__main__":
     G = build_species_network()
     print_summary(G)
     print(f"\nExtended Newick:\n{to_extended_newick(G)}")
+    plot_static(G)
+    plot_interactive(G)
