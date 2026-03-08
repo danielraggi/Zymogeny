@@ -893,29 +893,74 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
     _div("pop_farmhouse", "kveik_baltic")
 
     kveik_strains = [
+        # ── Norwegian kveik ──────────────────────────────────────────
         {"id": "OYL061", "parent": "kveik_norwegian",
          "display_name": "Omega OYL-061 Voss Kveik", "evidence": "sequenced",
          "fermentation": ["farmhouse ale"], "geography": ["Norway"],
-         "notes": "From Sigmund Gjernes (Voss); thermotolerant",
+         "notes": "From Sigmund Gjernes (Voss); thermotolerant; "
+                  "Preiss et al. 2018 sequenced",
          "confidence": "high"},
         {"id": "lallemand_voss", "parent": "kveik_norwegian",
          "display_name": "Lallemand Voss Kveik", "evidence": "equivalent",
          "fermentation": ["farmhouse ale"], "geography": ["Norway"],
-         "notes": "Dry format of Voss kveik", "confidence": "high"},
+         "notes": "Dry format of Voss kveik; = OYL-061 origin",
+         "confidence": "high"},
         {"id": "OYL091", "parent": "kveik_norwegian",
          "display_name": "Omega OYL-091 Hornindal", "evidence": "sequenced",
          "fermentation": ["farmhouse ale"], "geography": ["Norway"],
-         "notes": "Blend from Terje Raftevold; stone fruit and pineapple "
-                  "at high temps", "confidence": "high"},
+         "notes": "Blend from Terje Raftevold (Hornindal); stone fruit "
+                  "and pineapple at high temps; Preiss et al. 2018",
+         "confidence": "high"},
         {"id": "OYL071", "parent": "kveik_norwegian",
          "display_name": "Omega OYL-071 Lutra", "evidence": "sequenced",
          "fermentation": ["farmhouse ale"], "geography": ["Norway"],
-         "notes": "Single isolate from Hornindal blend; very clean",
+         "notes": "Single isolate from Hornindal blend; very clean; "
+                  "pseudo-lager capability",
          "confidence": "high"},
         {"id": "OYL057", "parent": "kveik_norwegian",
          "display_name": "Omega OYL-057 HotHead", "evidence": "sequenced",
          "fermentation": ["farmhouse ale"], "geography": ["Norway"],
-         "notes": "From Stranda kveik; collected by Lars Garshol",
+         "notes": "From Stranda kveik; collected by Lars Garshol; "
+                  "Preiss et al. 2018",
+         "confidence": "high"},
+        {"id": "OYL090", "parent": "kveik_norwegian",
+         "display_name": "Omega OYL-090 Espe Kveik", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "From Rivenes farm (Espe); tropical/citrus; "
+                  "collected by Lars Garshol",
+         "confidence": "high"},
+        {"id": "imperial_B48", "parent": "kveik_norwegian",
+         "display_name": "Imperial B48 Triple Double", "evidence": "equivalent",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "Stranda kveik origin; = OYL-057 HotHead source culture",
+         "confidence": "high"},
+        {"id": "escarpment_krispy", "parent": "kveik_norwegian",
+         "display_name": "Escarpment Krispy Kveik", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "Clean kveik isolate; Escarpment Labs; sequenced in "
+                  "Preiss et al. 2018",
+         "confidence": "high"},
+
+        # ── Baltic landrace ──────────────────────────────────────────
+        {"id": "OYL033", "parent": "kveik_baltic",
+         "display_name": "Omega OYL-033 Jovaru", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Lithuania"],
+         "notes": "From Jovaru Alus brewery (Jovarai, Lithuania); "
+                  "traditional Lithuanian farmhouse ale; POF+; "
+                  "Preiss et al. 2018",
+         "confidence": "high"},
+        {"id": "OYL036", "parent": "kveik_baltic",
+         "display_name": "Omega OYL-036 Simonaitis", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Lithuania"],
+         "notes": "Lithuanian farmhouse strain; from Ramunas Cizas "
+                  "brewery; collected by Lars Garshol; "
+                  "Preiss et al. 2018",
+         "confidence": "high"},
+        {"id": "escarpment_ecobrau", "parent": "kveik_baltic",
+         "display_name": "Escarpment Ecobrau Lithuanian", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Lithuania"],
+         "notes": "Lithuanian farmhouse isolate; Escarpment Labs; "
+                  "Preiss et al. 2018",
          "confidence": "high"},
     ]
 
