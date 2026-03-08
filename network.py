@@ -1,4 +1,6 @@
-"""Level 1 Saccharomyces species phylogenetic network."""
+"""Saccharomyces phylogenetic network (species + population levels)."""
+
+import json
 
 import networkx as nx
 
@@ -18,6 +20,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": [],
             "wild": True,
             "geography": [],
+            "strain_count": None,
+            "primary_substrate": [],
             "notes": "Outgroup",
         },
         {
@@ -28,6 +32,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": [],
             "wild": True,
             "geography": ["East Asia"],
+            "strain_count": 17,
+            "primary_substrate": ["oak bark"],
             "notes": "East Asian oaks; wild only",
         },
         {
@@ -37,7 +43,9 @@ def build_species_network() -> nx.DiGraph:
             "is_hybrid": False,
             "fermentation": [],
             "wild": True,
-            "geography": ["Europe", "Asia"],
+            "geography": ["Europe", "East Asia"],
+            "strain_count": 27,
+            "primary_substrate": ["oak bark", "decayed leaf"],
             "notes": "European/Asian oak bark; never isolated from fermentation",
         },
         {
@@ -48,6 +56,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": [],
             "wild": True,
             "geography": ["Japan"],
+            "strain_count": 11,
+            "primary_substrate": ["decayed leaf", "soil"],
             "notes": "Japan; wild only",
         },
         {
@@ -58,6 +68,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": [],
             "wild": True,
             "geography": ["Europe"],
+            "strain_count": 6,
+            "primary_substrate": ["oak bark"],
             "notes": "European pre-Alps/UK oaks; described 2017",
         },
         {
@@ -68,6 +80,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": ["spontaneous"],
             "wild": True,
             "geography": ["Global"],
+            "strain_count": 197,
+            "primary_substrate": ["oak bark", "soil", "insect"],
             "notes": "Global; wild, rare spontaneous fermentation",
         },
         {
@@ -78,6 +92,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": ["wine", "cider"],
             "wild": False,
             "geography": ["Global"],
+            "strain_count": 36,
+            "primary_substrate": ["grape must", "cider", "oak bark"],
             "notes": "Wine, cider, cold fermentation; partly domesticated",
         },
         {
@@ -87,8 +103,10 @@ def build_species_network() -> nx.DiGraph:
             "is_hybrid": False,
             "fermentation": [],
             "wild": True,
-            "geography": ["Patagonia", "Tibet"],
-            "notes": "Wild; lager parent",
+            "geography": ["Patagonia", "Tibet", "North America"],
+            "strain_count": 152,
+            "primary_substrate": ["Nothofagus bark", "soil"],
+            "notes": "Wild; lager parent; hotspot of diversity in Patagonia",
         },
         {
             "id": "S_cerevisiae",
@@ -98,6 +116,8 @@ def build_species_network() -> nx.DiGraph:
             "fermentation": [],
             "wild": False,
             "geography": ["Global"],
+            "strain_count": 1282,
+            "primary_substrate": [],
             "notes": "Species node; fermentation associations are on population-level nodes below",
         },
     ]
@@ -483,6 +503,29 @@ def to_extended_newick(G: nx.DiGraph) -> str:
     return _newick(root) + ";"
 
 
+def to_graphml(G: nx.DiGraph, outfile="network.graphml"):
+    """Export the network to GraphML format.
+
+    List-valued node attributes are serialised as JSON strings
+    since GraphML only supports scalar types.
+    """
+    G_export = G.copy()
+    for node in G_export.nodes():
+        for key, val in G_export.nodes[node].items():
+            if isinstance(val, list):
+                G_export.nodes[node][key] = json.dumps(val)
+            elif val is None:
+                G_export.nodes[node][key] = ""
+    for u, v in G_export.edges():
+        for key, val in G_export.edges[u, v].items():
+            if val is None:
+                G_export.edges[u, v][key] = ""
+            elif isinstance(val, list):
+                G_export.edges[u, v][key] = json.dumps(val)
+    nx.write_graphml(G_export, outfile)
+    print(f"GraphML exported to {outfile}")
+
+
 def print_summary(G: nx.DiGraph):
     """Print a summary of the network."""
     species = [n for n, d in G.nodes(data=True) if d.get("type") == "species"]
@@ -502,6 +545,15 @@ def print_summary(G: nx.DiGraph):
     int_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "introgression"]
     print(f"  Divergence: {len(div_edges)}, Hybridisation: {len(hyb_edges)}, "
           f"Introgression: {len(int_edges)}")
+
+    print("\nSpecies strain counts (Peris et al. 2023):")
+    for s in species:
+        data = G.nodes[s]
+        count = data.get("strain_count")
+        if count is not None:
+            substrate = data.get("primary_substrate", [])
+            sub_str = f"  substrate: {', '.join(substrate)}" if substrate else ""
+            print(f"  {data['display_name']}: {count} strains{sub_str}")
 
     print("\nHybrid nodes:")
     for h in hybrids:
@@ -672,6 +724,12 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             title = f"<b>{name}</b><br>{notes}"
             ferm = data.get("fermentation", [])
             geo = data.get("geography", [])
+            count = data.get("strain_count")
+            substrate = data.get("primary_substrate", [])
+            if count is not None:
+                title += f"<br>Strains: {count}"
+            if substrate:
+                title += f"<br>Substrate: {', '.join(substrate)}"
             if ferm:
                 title += f"<br>Fermentation: {', '.join(ferm)}"
             if geo:
@@ -755,6 +813,13 @@ if __name__ == "__main__":
     G = build_species_network()
     add_population_nodes(G)
     print_summary(G)
-    print(f"\nExtended Newick:\n{to_extended_newick(G)}")
+
+    newick = to_extended_newick(G)
+    print(f"\nExtended Newick:\n{newick}")
+    with open("network.nwk", "w") as f:
+        f.write(newick + "\n")
+    print("Extended Newick saved to network.nwk")
+
+    to_graphml(G)
     plot_static(G)
     plot_interactive(G)

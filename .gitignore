@@ -1,6 +1,8 @@
 # Generated outputs
 network.png
 network.html
+network.nwk
+network.graphml
 
 # Vendored JS/CSS from pyvis
 lib/
