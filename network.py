@@ -1164,13 +1164,33 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
                 nbrs.append(c)
         return nbrs
 
+    def _primary_parent(node):
+        """Return the primary parent: the divergence parent if one exists,
+        otherwise the hybridisation parent with the highest admixture
+        fraction, otherwise any parent."""
+        parents = list(G.predecessors(node))
+        if not parents:
+            return None
+        for p in parents:
+            if G.edges[p, node].get("type") == "divergence":
+                return p
+        best, best_frac = parents[0], -1
+        for p in parents:
+            frac = G.edges[p, node].get("admixture_fraction", 0) or 0
+            if frac > best_frac:
+                best, best_frac = p, frac
+        return best
+
     for _ in range(8):
         for d in range(1, max_depth + 1):
             bc = {}
             for node in by_depth[d]:
                 nbrs = _nbrs_at_level(node, d - 1)
                 bc[node] = sum(order[n] for n in nbrs) / len(nbrs) if nbrs else order[node]
-            by_depth[d].sort(key=lambda n: bc[n])
+            # Sort by (primary parent position, barycenter) so siblings
+            # stay grouped together.
+            by_depth[d].sort(key=lambda n: (
+                order.get(_primary_parent(n), bc[n]), bc[n]))
             for i, node in enumerate(by_depth[d]):
                 order[node] = i
         for d in range(max_depth - 1, -1, -1):
@@ -1384,9 +1404,27 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
                 nbrs.append(c)
         return nbrs
 
+    def _primary_parent_interactive(node):
+        """Return the primary parent: divergence parent if one exists,
+        else the hybridisation parent with highest admixture fraction."""
+        parents = list(G.predecessors(node))
+        if not parents:
+            return None
+        for p in parents:
+            if G.edges[p, node].get("type") == "divergence":
+                return p
+        best, best_frac = parents[0], -1
+        for p in parents:
+            frac = G.edges[p, node].get("admixture_fraction", 0) or 0
+            if frac > best_frac:
+                best, best_frac = p, frac
+        return best
+
     for _sweep in range(8):
         # Down sweep: for each level (top to bottom), reorder by
         # average position of neighbours in the level above.
+        # Sort by (primary parent position, barycenter) so siblings
+        # stay grouped together.
         for d in range(1, max_level + 1):
             barycenters = {}
             for node in by_level[d]:
@@ -1395,7 +1433,9 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
                     barycenters[node] = sum(order[n] for n in nbrs) / len(nbrs)
                 else:
                     barycenters[node] = order[node]
-            by_level[d].sort(key=lambda n: barycenters[n])
+            by_level[d].sort(key=lambda n: (
+                order.get(_primary_parent_interactive(n), barycenters[n]),
+                barycenters[n]))
             for i, node in enumerate(by_level[d]):
                 order[node] = i
 
