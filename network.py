@@ -1268,7 +1268,57 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
     from pyvis.network import Network
 
     net = Network(height="800px", width="100%", directed=True, notebook=False)
-    net.barnes_hut(gravity=-8000, central_gravity=0.3, spring_length=200)
+
+    # Use hierarchical layout so the DAG flows top-to-bottom (poset style)
+    net.set_options("""
+    {
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "UD",
+          "sortMethod": "directed",
+          "levelSeparation": 150,
+          "nodeSpacing": 200,
+          "treeSpacing": 250,
+          "shakeTowards": "roots"
+        }
+      },
+      "physics": {
+        "hierarchicalRepulsion": {
+          "centralGravity": 0.0,
+          "springLength": 150,
+          "springConstant": 0.01,
+          "nodeDistance": 200,
+          "damping": 0.09
+        }
+      },
+      "edges": {
+        "smooth": {
+          "type": "cubicBezier",
+          "forceDirection": "vertical"
+        }
+      }
+    }
+    """)
+
+    # Compute depth levels for hierarchical layout (same logic as plot_static)
+    depths = {}
+    def _assign_depth(node, d=0):
+        if node not in depths or d < depths[node]:
+            depths[node] = d
+            for child in G.successors(node):
+                edge = G.edges[node, child]
+                if edge["type"] == "divergence":
+                    _assign_depth(child, d + 1)
+
+    roots = [n for n in G.nodes() if G.in_degree(n) == 0]
+    for r in roots:
+        _assign_depth(r)
+
+    for node in G.nodes():
+        if node not in depths:
+            parent_depths = [depths[p] for p in G.predecessors(node) if p in depths]
+            depths[node] = max(parent_depths) + 1 if parent_depths else 0
 
     # Add nodes
     for node, data in G.nodes(data=True):
@@ -1350,7 +1400,7 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             title = data.get("display_name", node)
 
         net.add_node(node, label=label, title=title, color=color,
-                     size=size, font={"size": 10})
+                     size=size, font={"size": 10}, level=depths.get(node, 0))
 
     # Add edges
     for u, v, data in G.edges(data=True):
