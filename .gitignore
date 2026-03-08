@@ -2,6 +2,9 @@
 network.png
 network.html
 
+# Vendored JS/CSS from pyvis
+lib/
+
 # Python
 __pycache__/
 *.pyc
