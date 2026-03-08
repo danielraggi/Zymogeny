@@ -309,138 +309,276 @@ def build_species_network() -> nx.DiGraph:
 
 
 def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
-    """Add Level 2: S. cerevisiae population nodes and introgression edges."""
+    """Add Level 2: S. cerevisiae population subgraph with hierarchical structure.
 
-    populations = [
-        {
-            "id": "pop_beer1",
-            "type": "population",
-            "display_name": "Beer 1",
-            "is_hybrid": False,
-            "fermentation": ["ale"],
-            "wild": False,
-            "geography": ["Europe", "Global"],
-            "notes": "British, Belgian abbey, many craft strains; largest domesticated ale cluster",
-        },
-        {
-            "id": "pop_beer2",
-            "type": "population",
-            "display_name": "Beer 2",
-            "is_hybrid": False,
-            "fermentation": ["ale"],
-            "wild": False,
-            "geography": ["Belgium", "Europe"],
-            "notes": "Belgian saison, wheat beer; distinct from Beer 1",
-        },
-        {
-            "id": "pop_wine",
-            "type": "population",
-            "display_name": "Wine / European",
-            "is_hybrid": False,
-            "fermentation": ["wine", "bread"],
-            "wild": False,
-            "geography": ["Europe", "Global"],
-            "notes": "Largest overall cluster; includes many commercial wine yeasts",
-        },
-        {
-            "id": "pop_sake",
-            "type": "population",
-            "display_name": "Sake",
-            "is_hybrid": False,
-            "fermentation": ["sake"],
-            "wild": False,
-            "geography": ["Japan"],
-            "notes": "",
-        },
-        {
-            "id": "pop_west_african",
-            "type": "population",
-            "display_name": "West African",
-            "is_hybrid": False,
-            "fermentation": ["palm wine"],
-            "wild": False,
-            "geography": ["West Africa"],
-            "notes": "Palm wine, local fermentation",
-        },
-        {
-            "id": "pop_malaysian",
-            "type": "population",
-            "display_name": "Malaysian",
-            "is_hybrid": False,
-            "fermentation": [],
-            "wild": True,
-            "geography": ["Southeast Asia"],
-            "notes": "Wild/fermentation",
-        },
-        {
-            "id": "pop_north_american",
-            "type": "population",
-            "display_name": "North American",
-            "is_hybrid": False,
-            "fermentation": [],
-            "wild": True,
-            "geography": ["North America"],
-            "notes": "Wild",
-        },
-        {
-            "id": "pop_farmhouse",
-            "type": "population",
-            "display_name": "Farmhouse (European landrace)",
-            "is_hybrid": False,
-            "fermentation": ["farmhouse ale"],
-            "wild": False,
-            "geography": ["Norway", "Baltics"],
-            "notes": "Kveik, Lithuanian, Latvian; mixed Beer 1 + Asian domesticated ancestry; Preiss et al. 2024",
-        },
-    ]
+    Topology based on Gallone et al. (2016), Peter et al. (2018),
+    Liti et al. (2009), and Preiss et al. (2024). Beer 1 originated from
+    admixture between Wine/European and Sake/Asian ancestors; Beer 2 is
+    a separate, more divergent domestication. Wine and Beer 1 share a
+    common European domesticated ancestor.
+    """
 
-    # Wild basal lineages — separate node type
-    wild_node = {
+    def _add(node_dict):
+        G.add_node(node_dict["id"], **node_dict)
+
+    def _div(parent, child):
+        G.add_edge(parent, child, type="divergence",
+                   admixture_fraction=None, divergence_mya=None,
+                   confidence="high")
+
+    def _intro(parent, child, fraction=None, confidence="medium"):
+        G.add_edge(parent, child, type="introgression",
+                   admixture_fraction=fraction, divergence_mya=None,
+                   confidence=confidence)
+
+    # ── Wild basal lineages ──────────────────────────────────────────
+    _add({
         "id": "wild_basal",
         "type": "wild",
         "display_name": "Wild S. cerevisiae (basal lineages)",
-        "is_hybrid": False,
-        "fermentation": [],
-        "wild": True,
+        "is_hybrid": False, "fermentation": [], "wild": True,
         "geography": ["East Asia", "Global"],
-        "notes": "Extant wild isolates representing the deepest S. cerevisiae diversity; "
-                 "mainly East Asian (China); paraphyletic — all domesticated lineages "
-                 "emerge from within this wild diversity",
-    }
-    G.add_node(wild_node["id"], **wild_node)
-    G.add_edge("S_cerevisiae", wild_node["id"],
-               type="divergence",
-               admixture_fraction=None,
-               divergence_mya=None,
-               confidence="high")
+        "notes": "Extant wild isolates representing the deepest S. cerevisiae "
+                 "diversity; mainly East Asian (China); paraphyletic — all "
+                 "domesticated lineages emerge from within this wild diversity",
+    })
+    _div("S_cerevisiae", "wild_basal")
 
-    chicha = {
-        "id": "pop_chicha",
-        "type": "population",
-        "display_name": "Andean chicha",
-        "is_hybrid": False,
-        "fermentation": ["chicha"],
-        "wild": False,
-        "geography": ["Ecuador", "Peru"],
-        "notes": "Chicha (maize beer); related to Mexican agave and French Guiana strains; carries STA1 diastatic gene",
-    }
-    populations.append(chicha)
+    # ── Independent wild/early-diverging populations ─────────────────
+    for pop in [
+        {"id": "pop_malaysian", "type": "population",
+         "display_name": "Malaysian", "is_hybrid": False,
+         "fermentation": [], "wild": True,
+         "geography": ["Southeast Asia"],
+         "notes": "Wild/fermentation; early-diverging lineage"},
+        {"id": "pop_north_american", "type": "population",
+         "display_name": "North American", "is_hybrid": False,
+         "fermentation": [], "wild": True,
+         "geography": ["North America"],
+         "notes": "Wild"},
+        {"id": "pop_west_african", "type": "population",
+         "display_name": "West African", "is_hybrid": False,
+         "fermentation": ["palm wine"], "wild": False,
+         "geography": ["West Africa"],
+         "notes": "Palm wine, local fermentation; independent domestication"},
+    ]:
+        _add(pop)
+        _div("S_cerevisiae", pop["id"])
 
-    for pop in populations:
-        G.add_node(pop["id"], **pop)
-        G.add_edge("S_cerevisiae", pop["id"],
-                    type="divergence",
-                    admixture_fraction=None,
-                    divergence_mya=None,
-                    confidence="high")
+    # ── Asian domesticated ancestor ──────────────────────────────────
+    _add({"id": "anc_asian_domestic", "type": "ancestor",
+          "display_name": "anc_asian_domestic", "is_hybrid": False,
+          "fermentation": [], "wild": False, "geography": ["East Asia"],
+          "notes": "Ancestral Asian domesticated lineage"})
+    _div("S_cerevisiae", "anc_asian_domestic")
 
-    # Introgression from S. paradoxus into Neotropical S. cerevisiae populations
-    # (notably enriched in Andean chicha strains)
-    G.add_edge("S_paradoxus", "pop_chicha",
-               type="introgression",
-               admixture_fraction=None,
-               divergence_mya=None,
-               confidence="medium")
+    _add({"id": "pop_sake", "type": "population",
+          "display_name": "Sake", "is_hybrid": False,
+          "fermentation": ["sake"], "wild": False,
+          "geography": ["Japan"],
+          "notes": "Independent Asian domestication"})
+    _div("anc_asian_domestic", "pop_sake")
+
+    # ── European domesticated ancestor (Wine + Beer 1 share this) ────
+    _add({"id": "anc_european_domestic", "type": "ancestor",
+          "display_name": "anc_european_domestic", "is_hybrid": False,
+          "fermentation": [], "wild": False, "geography": ["Europe"],
+          "notes": "Common ancestor of Wine/European and Beer 1 lineages"})
+    _div("S_cerevisiae", "anc_european_domestic")
+
+    # Wine / European
+    _add({"id": "pop_wine", "type": "population",
+          "display_name": "Wine / European", "is_hybrid": False,
+          "fermentation": ["wine", "bread"], "wild": False,
+          "geography": ["Europe", "Global"],
+          "notes": "Largest overall cluster; includes commercial wine yeasts "
+                   "and bread strains"})
+    _div("anc_european_domestic", "pop_wine")
+
+    # Beer 1 — polyploid admixed origin (European + Asian ancestry)
+    _add({"id": "pop_beer1", "type": "population",
+          "display_name": "Beer 1", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Europe", "Global"],
+          "notes": "Largest domesticated ale cluster; polyploid admixed origin "
+                   "from European wine and Asian domesticated ancestors; "
+                   "Gallone et al. 2016"})
+    _div("anc_european_domestic", "pop_beer1")
+    # Asian admixture into Beer 1
+    _intro("anc_asian_domestic", "pop_beer1", confidence="high")
+
+    # ── Beer 1 subclusters ───────────────────────────────────────────
+
+    # British ale subclade
+    _add({"id": "beer1_british", "type": "population",
+          "display_name": "Beer 1 — British ale", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["UK", "Ireland"],
+          "notes": "Whitbread B family and relatives"})
+    _div("pop_beer1", "beer1_british")
+
+    # Belgian ale subclade
+    _add({"id": "beer1_belgian", "type": "population",
+          "display_name": "Beer 1 — Belgian ale", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Belgium"],
+          "notes": "Belgian abbey and Trappist strains"})
+    _div("pop_beer1", "beer1_belgian")
+
+    # American ale subclade (derived from British/Belgian strains)
+    _add({"id": "beer1_american", "type": "population",
+          "display_name": "Beer 1 — American ale", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["North America", "Global"],
+          "notes": "Chico/BRY-97 family; derived from British/Belgian strains"})
+    _div("pop_beer1", "beer1_american")
+
+    # German ale subclade
+    _add({"id": "beer1_german", "type": "population",
+          "display_name": "Beer 1 — German ale", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Germany"],
+          "notes": "Kölsch, Altbier, and German wheat beer strains"})
+    _div("pop_beer1", "beer1_german")
+
+    # ── Specific strains (Level 3: strain nodes under subclusters) ───
+
+    strains = [
+        # British ale
+        {"id": "WLP002", "type": "strain", "parent": "beer1_british",
+         "display_name": "WLP002 English Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Fullers; Whitbread B family; WY1968 equivalent"},
+        {"id": "WLP004", "type": "strain", "parent": "beer1_british",
+         "display_name": "WLP004 Irish Stout",
+         "fermentation": ["ale"], "geography": ["Ireland"],
+         "notes": "Guinness strain"},
+        {"id": "WLP007", "type": "strain", "parent": "beer1_british",
+         "display_name": "WLP007 Dry English Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Whitbread B family"},
+        {"id": "WLP013", "type": "strain", "parent": "beer1_british",
+         "display_name": "WLP013 London Ale",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "London brewery origin"},
+
+        # American ale
+        {"id": "WLP001", "type": "strain", "parent": "beer1_american",
+         "display_name": "WLP001 California Ale",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Sierra Nevada 'Chico' strain; WY1056 / US-05 equivalent"},
+        {"id": "WLP090", "type": "strain", "parent": "beer1_american",
+         "display_name": "WLP090 San Diego Super",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Clean American ale; closely related to WLP001"},
+        {"id": "BRY97", "type": "strain", "parent": "beer1_american",
+         "display_name": "Fermentis BRY-97",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "West Coast American ale strain"},
+
+        # Belgian ale
+        {"id": "WLP530", "type": "strain", "parent": "beer1_belgian",
+         "display_name": "WLP530 Abbey Ale",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Westmalle origin; WY3787 equivalent"},
+        {"id": "WLP400", "type": "strain", "parent": "beer1_belgian",
+         "display_name": "WLP400 Belgian Wit",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Hoegaarden origin"},
+        {"id": "WLP550", "type": "strain", "parent": "beer1_belgian",
+         "display_name": "WLP550 Belgian Ale",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Achouffe origin"},
+        {"id": "WLP500", "type": "strain", "parent": "beer1_belgian",
+         "display_name": "WLP500 Monastery Ale",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Chimay origin; WY1214 equivalent"},
+
+        # German ale
+        {"id": "WLP300", "type": "strain", "parent": "beer1_german",
+         "display_name": "WLP300 Hefeweizen",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "German wheat beer; POF+ (produces 4-vinylguaiacol)"},
+        {"id": "WLP003", "type": "strain", "parent": "beer1_german",
+         "display_name": "WLP003 German Ale II",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "WY1007 equivalent"},
+        {"id": "WLP029", "type": "strain", "parent": "beer1_german",
+         "display_name": "WLP029 German Ale / Kölsch",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "Kölsch-style; actually a lager-ale hybrid position in tree"},
+    ]
+
+    for s in strains:
+        parent = s.pop("parent")
+        s["is_hybrid"] = False
+        s["wild"] = False
+        _add(s)
+        _div(parent, s["id"])
+
+    # ── Beer 2 — separate domestication, STA1+ diastatic ─────────────
+    _add({"id": "pop_beer2", "type": "population",
+          "display_name": "Beer 2", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["Belgium", "Europe"],
+          "notes": "Belgian saison, wheat beer; separate domestication from "
+                   "Beer 1; STA1 diastatic gene prevalent; Gallone et al. 2016"})
+    _div("S_cerevisiae", "pop_beer2")
+
+    beer2_strains = [
+        {"id": "WLP565", "type": "strain", "parent": "pop_beer2",
+         "display_name": "WLP565 Belgian Saison I",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Dupont origin; classic saison strain; WY3724 equivalent"},
+        {"id": "WLP566", "type": "strain", "parent": "pop_beer2",
+         "display_name": "WLP566 Belgian Saison II",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Second saison strain"},
+        {"id": "WLP570", "type": "strain", "parent": "pop_beer2",
+         "display_name": "WLP570 Belgian Golden Ale",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Duvel origin"},
+    ]
+
+    for s in beer2_strains:
+        parent = s.pop("parent")
+        s["is_hybrid"] = False
+        s["wild"] = False
+        _add(s)
+        _div(parent, s["id"])
+
+    # ── Mixed clade (bottle refermentation, bread) ───────────────────
+    _add({"id": "pop_mixed", "type": "population",
+          "display_name": "Mixed", "is_hybrid": False,
+          "fermentation": ["ale", "bread"], "wild": False,
+          "geography": ["Belgium", "Europe"],
+          "notes": "Atypical beer yeasts for bottle refermentation of strong "
+                   "Belgian ales; contains all bread strains; mosaic ancestry; "
+                   "Gallone et al. 2016"})
+    _div("S_cerevisiae", "pop_mixed")
+
+    # ── Farmhouse / kveik (admixture: Beer 1 × Asian) ────────────────
+    _add({"id": "pop_farmhouse", "type": "population",
+          "display_name": "Farmhouse (European landrace)", "is_hybrid": False,
+          "fermentation": ["farmhouse ale"], "wild": False,
+          "geography": ["Norway", "Baltics"],
+          "notes": "Kveik, Lithuanian, Latvian; mixed Beer 1 + Asian "
+                   "domesticated ancestry; Preiss et al. 2024"})
+    _div("S_cerevisiae", "pop_farmhouse")
+    _intro("pop_beer1", "pop_farmhouse", confidence="high")
+    _intro("anc_asian_domestic", "pop_farmhouse", confidence="high")
+
+    # ── Andean chicha ────────────────────────────────────────────────
+    _add({"id": "pop_chicha", "type": "population",
+          "display_name": "Andean chicha", "is_hybrid": False,
+          "fermentation": ["chicha"], "wild": False,
+          "geography": ["Ecuador", "Peru"],
+          "notes": "Chicha (maize beer); related to Mexican agave and French "
+                   "Guiana strains; carries STA1 diastatic gene"})
+    _div("S_cerevisiae", "pop_chicha")
+
+    # Introgression from S. paradoxus into Neotropical populations
+    _intro("S_paradoxus", "pop_chicha")
 
     return G
 
@@ -528,16 +666,13 @@ def to_graphml(G: nx.DiGraph, outfile="network.graphml"):
 
 def print_summary(G: nx.DiGraph):
     """Print a summary of the network."""
-    species = [n for n, d in G.nodes(data=True) if d.get("type") == "species"]
-    hybrids = [n for n, d in G.nodes(data=True) if d.get("type") == "hybrid"]
-    ancestors = [n for n, d in G.nodes(data=True) if d.get("type") == "ancestor"]
-    populations = [n for n, d in G.nodes(data=True) if d.get("type") == "population"]
-    wilds = [n for n, d in G.nodes(data=True) if d.get("type") == "wild"]
+    by_type = {}
+    for n, d in G.nodes(data=True):
+        t = d.get("type", "unknown")
+        by_type.setdefault(t, []).append(n)
 
-    print(f"Nodes: {G.number_of_nodes()} "
-          f"({len(species)} species, {len(hybrids)} hybrids, "
-          f"{len(populations)} populations, {len(wilds)} wild, "
-          f"{len(ancestors)} ancestors)")
+    counts = ", ".join(f"{len(v)} {k}" for k, v in by_type.items())
+    print(f"Nodes: {G.number_of_nodes()} ({counts})")
     print(f"Edges: {G.number_of_edges()}")
 
     div_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "divergence"]
@@ -547,7 +682,7 @@ def print_summary(G: nx.DiGraph):
           f"Introgression: {len(int_edges)}")
 
     print("\nSpecies strain counts (Peris et al. 2023):")
-    for s in species:
+    for s in by_type.get("species", []):
         data = G.nodes[s]
         count = data.get("strain_count")
         if count is not None:
@@ -556,7 +691,7 @@ def print_summary(G: nx.DiGraph):
             print(f"  {data['display_name']}: {count} strains{sub_str}")
 
     print("\nHybrid nodes:")
-    for h in hybrids:
+    for h in by_type.get("hybrid", []):
         parents = list(G.predecessors(h))
         parent_names = [G.nodes[p].get("display_name", p) for p in parents]
         print(f"  {G.nodes[h]['display_name']}")
@@ -642,6 +777,10 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
             node_colors.append("#27AE60")
             node_sizes.append(500)
             labels[node] = data.get("display_name", node)
+        elif ntype == "strain":
+            node_colors.append("#F39C12")
+            node_sizes.append(350)
+            labels[node] = data.get("display_name", node)
         elif ntype == "wild":
             node_colors.append("#8E44AD")
             node_sizes.append(600)
@@ -689,6 +828,7 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
         mpatches.Patch(color="#4A90D9", label="Species"),
         mpatches.Patch(color="#E74C3C", label="Hybrid"),
         mpatches.Patch(color="#27AE60", label="Population"),
+        mpatches.Patch(color="#F39C12", label="Strain"),
         mpatches.Patch(color="#8E44AD", label="Wild"),
         mpatches.Patch(color="#95A5A6", label="Ancestor"),
         plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence"),
@@ -755,6 +895,17 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
         elif ntype == "population":
             color = "#27AE60"
             size = 18
+            label = name
+            title = f"<b>{name}</b><br>{notes}"
+            ferm = data.get("fermentation", [])
+            geo = data.get("geography", [])
+            if ferm:
+                title += f"<br>Fermentation: {', '.join(ferm)}"
+            if geo:
+                title += f"<br>Geography: {', '.join(geo)}"
+        elif ntype == "strain":
+            color = "#F39C12"
+            size = 14
             label = name
             title = f"<b>{name}</b><br>{notes}"
             ferm = data.get("fermentation", [])
