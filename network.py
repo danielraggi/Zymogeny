@@ -321,10 +321,10 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
     def _add(node_dict):
         G.add_node(node_dict["id"], **node_dict)
 
-    def _div(parent, child):
+    def _div(parent, child, confidence="high"):
         G.add_edge(parent, child, type="divergence",
                    admixture_fraction=None, divergence_mya=None,
-                   confidence="high")
+                   confidence=confidence)
 
     def _intro(parent, child, fraction=None, confidence="medium"):
         G.add_edge(parent, child, type="introgression",
@@ -459,19 +459,28 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
           "fermentation": ["ale"], "wild": False,
           "geography": ["UK", "Ireland"],
           "notes": "British ale strains; multiple subgroups including "
-                   "Whitbread B, Brakspear/Burton, and others"})
+                   "Whitbread B, Whitbread II, Brakspear/Burton"})
     _div("beer1_british_us", "beer1_british")
 
-    # Whitbread B subgroup within British ale
-    _add({"id": "brit_whitbread", "type": "population",
+    # Whitbread B subgroup
+    _add({"id": "brit_whitbread_b", "type": "population",
           "display_name": "Whitbread B family", "is_hybrid": False,
           "fermentation": ["ale"], "wild": False,
           "geography": ["UK"],
           "notes": "Perhaps the most important group of British industrial "
                    "yeasts; includes Fullers, Gale's/Hales lineage"})
-    _div("beer1_british", "brit_whitbread")
+    _div("beer1_british", "brit_whitbread_b")
 
-    # Brakspear / Burton subgroup within British ale
+    # Whitbread II subgroup (distinct from Whitbread B)
+    _add({"id": "brit_whitbread_ii", "type": "population",
+          "display_name": "Whitbread II family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["UK"],
+          "notes": "Separate Whitbread lineage; includes Boddington's; "
+                   "WLP017 (Vault strain)"})
+    _div("beer1_british", "brit_whitbread_ii")
+
+    # Brakspear / Burton subgroup
     _add({"id": "brit_brakspear", "type": "population",
           "display_name": "Brakspear / Burton family", "is_hybrid": False,
           "fermentation": ["ale"], "wild": False,
@@ -480,108 +489,258 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
                    "yeast widely used across SE England / Greene King"})
     _div("beer1_british", "brit_brakspear")
 
-    # American ale subclade (diverged from British subclade)
+    # Bedford / London subgroup (S-04, WLP006, WLP013)
+    _add({"id": "brit_bedford", "type": "population",
+          "display_name": "Bedford / London family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["UK"],
+          "notes": "WLP006 Bedford (Charles Wells), WLP013 London, S-04; "
+                   "distinct from Whitbread B despite common assumption"})
+    _div("beer1_british", "brit_bedford")
+
+    # American ale subclade — two distinct Chico sub-families
     _add({"id": "beer1_american", "type": "population",
           "display_name": "Beer 1 — American ale", "is_hybrid": False,
           "fermentation": ["ale"], "wild": False,
           "geography": ["North America", "Global"],
-          "notes": "Chico/BRY-97 family; diverged from British subclade "
-                   "during colonisation era; Ballantine → Siebel → "
-                   "Sierra Nevada lineage"})
+          "notes": "Chico family; diverged from British subclade during "
+                   "colonisation era; Ballantine → Siebel → Sierra Nevada; "
+                   "two distinct sub-families (WLP001 vs WY1056)"})
     _div("beer1_british_us", "beer1_american")
 
-    # ── Specific strains (Level 3: strain nodes under subclusters) ───
+    # WLP001 Chico sub-family
+    _add({"id": "chico_wlp001", "type": "population",
+          "display_name": "Chico — WLP001 sub-family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["North America"],
+          "notes": "WLP001-centred group; chromosome VIII recombination "
+                   "restoring wild-type BAT1; includes Omega, Escarpment, "
+                   "Gigayeast Chico variants"})
+    _div("beer1_american", "chico_wlp001")
+
+    # WY1056 Chico sub-family
+    _add({"id": "chico_wy1056", "type": "population",
+          "display_name": "Chico — WY1056 sub-family", "is_hybrid": False,
+          "fermentation": ["ale"], "wild": False,
+          "geography": ["North America"],
+          "notes": "WY1056-centred group; retains BAT1 A234D mutation; "
+                   "includes US-05 and Imperial A07 Flagship"})
+    _div("beer1_american", "chico_wy1056")
+
+    # ── Specific strains ─────────────────────────────────────────────
+    # evidence: "sequenced" = whole-genome placed on tree
+    #           "equivalent" = known same strain as a sequenced one
+    #           "inferred" = placed by phenotype, history, or interdelta PCR
 
     strains = [
-        # British ale — Whitbread B family
-        {"id": "WLP002", "type": "strain", "parent": "brit_whitbread",
-         "display_name": "WLP002 English Ale",
+        # ── British — Whitbread B ────────────────────────────────────
+        {"id": "WLP002", "parent": "brit_whitbread_b",
+         "display_name": "WLP002 English Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "Fullers; Whitbread B family; WY1968 equivalent"},
-        {"id": "WLP007", "type": "strain", "parent": "brit_whitbread",
-         "display_name": "WLP007 Dry English Ale",
+         "notes": "Fullers; Whitbread B family", "confidence": "high"},
+        {"id": "WLP007", "parent": "brit_whitbread_b",
+         "display_name": "WLP007 Dry English Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "Whitbread B family"},
+         "notes": "Whitbread B family", "confidence": "high"},
+        {"id": "WY1968", "parent": "brit_whitbread_b",
+         "display_name": "WY1968 London ESB", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Supposedly Fullers; near WLP002 but not identical; "
+                  "Fay et al. 2019", "confidence": "high"},
+        {"id": "WY1332", "parent": "brit_whitbread_b",
+         "display_name": "WY1332 Northwest Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Hales of Seattle via Gale's (England); Whitbread B "
+                  "lineage; near WLP041 Pacific (Redhook)",
+         "confidence": "high"},
+        {"id": "escarpment_vermont", "parent": "brit_whitbread_b",
+         "display_name": "Escarpment Vermont Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Classic NEIPA strain; closely related to WY1968; "
+                  "Whitbread B group", "confidence": "high"},
 
-        # British ale — Brakspear / Burton family
-        {"id": "WLP023", "type": "strain", "parent": "brit_brakspear",
-         "display_name": "WLP023 Burton Ale",
+        # ── British — Whitbread II ───────────────────────────────────
+        {"id": "WY1098", "parent": "brit_whitbread_ii",
+         "display_name": "WY1098 British Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "Brakspear / Marston's origin; WY1275 Thames Valley equivalent"},
-        {"id": "WY1275", "type": "strain", "parent": "brit_brakspear",
-         "display_name": "WY1275 Thames Valley",
+         "notes": "Whitbread origin; NOT equivalent to WLP007 despite "
+                  "internet charts", "confidence": "high"},
+        {"id": "WY1318", "parent": "brit_whitbread_ii",
+         "display_name": "WY1318 London Ale III", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "Brakspear via Marston's; close to WLP023"},
+         "notes": "Boddington's origin; NEIPA/biotransformation strain; "
+                  "whole-genome places it here despite interdelta PCR "
+                  "suggesting German group", "confidence": "high"},
 
-        # British ale — other British strains (not tightly clustered)
-        {"id": "WLP004", "type": "strain", "parent": "beer1_british",
-         "display_name": "WLP004 Irish Stout",
+        # ── British — Brakspear / Burton ─────────────────────────────
+        {"id": "WLP023", "parent": "brit_brakspear",
+         "display_name": "WLP023 Burton Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Brakspear / Marston's origin", "confidence": "high"},
+        {"id": "WY1275", "parent": "brit_brakspear",
+         "display_name": "WY1275 Thames Valley", "evidence": "equivalent",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Brakspear via Marston's; same origin as WLP023; "
+                  "confirmed by Wyeast via mrmalty", "confidence": "high"},
+
+        # ── British — Bedford / London ───────────────────────────────
+        {"id": "WLP013", "parent": "brit_bedford",
+         "display_name": "WLP013 London Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Worthington White Shield origin", "confidence": "high"},
+        {"id": "S04", "parent": "brit_bedford",
+         "display_name": "Fermentis S-04", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Near WLP006 Bedford and WLP013; NOT Whitbread B "
+                  "despite common assumption; coded CFG in Gallone",
+         "confidence": "high"},
+
+        # ── British — other (less certain sub-position) ──────────────
+        {"id": "WLP004", "parent": "beer1_british",
+         "display_name": "WLP004 Irish Stout", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Ireland"],
-         "notes": "Guinness strain"},
-        {"id": "WLP013", "type": "strain", "parent": "beer1_british",
-         "display_name": "WLP013 London Ale",
+         "notes": "Guinness strain", "confidence": "medium"},
+        {"id": "WLP028", "parent": "beer1_british",
+         "display_name": "WLP028 Edinburgh Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "London brewery origin; clusters near WLP006 Bedford"},
-        {"id": "WLP028", "type": "strain", "parent": "beer1_british",
-         "display_name": "WLP028 Edinburgh Ale",
+         "notes": "McEwan's origin; distant from WY1728 despite shared "
+                  "attribution; mosaic strain", "confidence": "medium"},
+        {"id": "WY1028", "parent": "beer1_british",
+         "display_name": "WY1028 London Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["UK"],
-         "notes": "McEwan's origin; distant from WY1728 despite shared attribution"},
+         "notes": "Worthington White Shield; unexpectedly close to WY1728",
+         "confidence": "medium"},
+        {"id": "WY1728", "parent": "beer1_british",
+         "display_name": "WY1728 Scottish Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "McEwan's; close to WY1028 not WLP028; near WLP011 "
+                  "European and WLP072 French", "confidence": "medium"},
+        {"id": "nottingham", "parent": "beer1_british",
+         "display_name": "Lallemand Nottingham", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Beer 1 British outlier; near WLP039 East Midlands; "
+                  "from Boots multi-strain culture",
+         "confidence": "medium"},
 
-        # American ale
-        {"id": "WLP001", "type": "strain", "parent": "beer1_american",
-         "display_name": "WLP001 California Ale",
+        # ── American — WLP001 sub-family ─────────────────────────────
+        {"id": "WLP001", "parent": "chico_wlp001",
+         "display_name": "WLP001 California Ale", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["North America"],
-         "notes": "Sierra Nevada 'Chico' strain; WY1056 / US-05 equivalent"},
-        {"id": "WLP090", "type": "strain", "parent": "beer1_american",
-         "display_name": "WLP090 San Diego Super",
+         "notes": "Sierra Nevada 'Chico' strain", "confidence": "high"},
+        {"id": "WLP090", "parent": "chico_wlp001",
+         "display_name": "WLP090 San Diego Super", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["North America"],
-         "notes": "Clean American ale; closely related to WLP001"},
-        {"id": "BRY97", "type": "strain", "parent": "beer1_american",
-         "display_name": "Fermentis BRY-97",
+         "notes": "Clean American ale; closely related to WLP001",
+         "confidence": "high"},
+        {"id": "WY1792", "parent": "chico_wlp001",
+         "display_name": "WY1792 (Fat Tire / VSS)", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["North America"],
-         "notes": "West Coast American ale strain"},
+         "notes": "New Belgium strain; WLP001 sub-family",
+         "confidence": "high"},
+        {"id": "escarpment_cali", "parent": "chico_wlp001",
+         "display_name": "Escarpment Cali Ale", "evidence": "equivalent",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "WLP001 sub-family", "confidence": "high"},
+        {"id": "OYL004", "parent": "chico_wlp001",
+         "display_name": "Omega OYL-004", "evidence": "equivalent",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Omega Chico equivalent; WLP001 sub-family",
+         "confidence": "high"},
 
-        # Belgian ale
-        {"id": "WLP530", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP530 Abbey Ale",
-         "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Westmalle origin; WY3787 equivalent"},
-        {"id": "WLP400", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP400 Belgian Wit",
-         "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Hoegaarden origin"},
-        {"id": "WLP550", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP550 Belgian Ale",
-         "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Achouffe origin"},
-        {"id": "WLP500", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP500 Monastery Ale",
-         "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Chimay origin; WY1214 equivalent"},
+        # ── American — WY1056 sub-family ─────────────────────────────
+        {"id": "WY1056", "parent": "chico_wy1056",
+         "display_name": "WY1056 American Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Chico strain; NOT identical to WLP001 — retains "
+                  "BAT1 A234D mutation", "confidence": "high"},
+        {"id": "US05", "parent": "chico_wy1056",
+         "display_name": "Fermentis US-05", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Dry Chico; WY1056 sub-family; coded CFD in Gallone",
+         "confidence": "high"},
+        {"id": "WY1764", "parent": "chico_wy1056",
+         "display_name": "WY1764 Pacman", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Rogue's yeast; Chico derivative; = Imperial A18 "
+                  "Joystick", "confidence": "high"},
+        {"id": "imperial_A07", "parent": "chico_wy1056",
+         "display_name": "Imperial A07 Flagship", "evidence": "equivalent",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "WY1056 sub-family", "confidence": "high"},
+        {"id": "WY1272", "parent": "beer1_american",
+         "display_name": "WY1272 American Ale II", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["North America"],
+         "notes": "Near Chico/US group; exact sub-family uncertain",
+         "confidence": "medium"},
 
-        # German wheat beer (basal Beer 1)
-        {"id": "WLP300", "type": "strain", "parent": "beer1_wheat",
-         "display_name": "WLP300 Hefeweizen",
+        # ── Belgian / German ale ─────────────────────────────────────
+        {"id": "WLP530", "parent": "beer1_belgian",
+         "display_name": "WLP530 Abbey Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Westmalle origin", "confidence": "high"},
+        {"id": "WY3787", "parent": "beer1_belgian",
+         "display_name": "WY3787 Trappist HG", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Westmalle origin; near WLP530 but not identical; "
+                  "Hittinger lab (yHAB43)", "confidence": "high"},
+        {"id": "WLP400", "parent": "beer1_belgian",
+         "display_name": "WLP400 Belgian Wit", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Hoegaarden origin", "confidence": "high"},
+        {"id": "WLP550", "parent": "beer1_belgian",
+         "display_name": "WLP550 Belgian Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Achouffe origin", "confidence": "high"},
+        {"id": "WLP500", "parent": "beer1_belgian",
+         "display_name": "WLP500 Monastery Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Chimay origin", "confidence": "high"},
+        {"id": "WLP003", "parent": "beer1_belgian",
+         "display_name": "WLP003 German Ale II", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Germany"],
-         "notes": "German wheat beer; POF+ (produces 4-vinylguaiacol)"},
+         "notes": "Near WY1007", "confidence": "high"},
+        {"id": "WY1007", "parent": "beer1_belgian",
+         "display_name": "WY1007 German Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "Close to WLP003 German II; Fay et al. 2019",
+         "confidence": "high"},
+        {"id": "K97", "parent": "beer1_belgian",
+         "display_name": "Fermentis K-97", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "German ale; near WY1007/WLP036 group",
+         "confidence": "medium"},
+        {"id": "WLP029", "parent": "beer1_belgian",
+         "display_name": "WLP029 German Ale / Kölsch", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "Kölsch-style; in WLP002/007 vicinity per White Labs "
+                  "catalogue", "confidence": "medium"},
+        {"id": "WY2565", "parent": "beer1_belgian",
+         "display_name": "WY2565 Kölsch", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Germany"],
+         "notes": "Close to WLP800 Pilsner; Fay et al. 2019",
+         "confidence": "high"},
 
-        # Continental European (Belgian / German ale)
-        {"id": "WLP003", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP003 German Ale II",
+        # ── German wheat beer (basal Beer 1) ─────────────────────────
+        {"id": "WLP300", "parent": "beer1_wheat",
+         "display_name": "WLP300 Hefeweizen", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Germany"],
-         "notes": "WY1007 equivalent"},
-        {"id": "WLP029", "type": "strain", "parent": "beer1_belgian",
-         "display_name": "WLP029 German Ale / Kölsch",
+         "notes": "German wheat beer; POF+ (4-vinylguaiacol)",
+         "confidence": "high"},
+        {"id": "WY3068", "parent": "beer1_wheat",
+         "display_name": "WY3068 Weihenstephan Weizen", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Germany"],
-         "notes": "Kölsch-style"},
+         "notes": "Weihenstephan 68; POF+; Hittinger lab",
+         "confidence": "high"},
     ]
 
     for s in strains:
         parent = s.pop("parent")
+        conf = s.pop("confidence", "high")
+        s["type"] = "strain"
         s["is_hybrid"] = False
         s["wild"] = False
         _add(s)
-        _div(parent, s["id"])
+        _div(parent, s["id"], confidence=conf)
 
     # ── Beer 2 — separate domestication, STA1+ diastatic ─────────────
     _add({"id": "pop_beer2", "type": "population",
@@ -589,30 +748,82 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
           "fermentation": ["ale"], "wild": False,
           "geography": ["Belgium", "Europe"],
           "notes": "Belgian saison, wheat beer; separate domestication from "
-                   "Beer 1; STA1 diastatic gene prevalent; Gallone et al. 2016"})
+                   "Beer 1; STA1 diastatic gene prevalent; lacks geographic "
+                   "structure; Gallone et al. 2016"})
     _div("S_cerevisiae", "pop_beer2")
 
     beer2_strains = [
-        {"id": "WLP565", "type": "strain", "parent": "pop_beer2",
-         "display_name": "WLP565 Belgian Saison I",
+        # Saison group
+        {"id": "WLP565", "parent": "pop_beer2",
+         "display_name": "WLP565 Belgian Saison I", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Dupont origin; classic saison strain; WY3724 equivalent"},
-        {"id": "WLP566", "type": "strain", "parent": "pop_beer2",
-         "display_name": "WLP566 Belgian Saison II",
+         "notes": "Dupont origin; classic saison; WY3724 equivalent; STA1+",
+         "confidence": "high"},
+        {"id": "WY3724", "parent": "pop_beer2",
+         "display_name": "WY3724 Belgian Saison", "evidence": "equivalent",
          "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Second saison strain"},
-        {"id": "WLP570", "type": "strain", "parent": "pop_beer2",
-         "display_name": "WLP570 Belgian Golden Ale",
+         "notes": "Dupont; = WLP565; STA1+", "confidence": "high"},
+        {"id": "WLP566", "parent": "pop_beer2",
+         "display_name": "WLP566 Belgian Saison II", "evidence": "sequenced",
          "fermentation": ["ale"], "geography": ["Belgium"],
-         "notes": "Duvel origin"},
+         "notes": "Second saison strain; POF- despite saison label "
+                  "(PAD1/FDC1 nonsense mutations)", "confidence": "high"},
+        {"id": "belle_saison", "parent": "pop_beer2",
+         "display_name": "Lallemand Belle Saison", "evidence": "equivalent",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "= Fermentis BE-134; STA1+ diastaticus",
+         "confidence": "medium"},
+
+        # Duvel group
+        {"id": "WLP570", "parent": "pop_beer2",
+         "display_name": "WLP570 Belgian Golden Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Duvel origin; supposedly from McEwan's",
+         "confidence": "high"},
+        {"id": "WY1388", "parent": "pop_beer2",
+         "display_name": "WY1388 Belgian Strong Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Duvel; STA1+; clusters near WLP570",
+         "confidence": "high"},
+        {"id": "WB06", "parent": "pop_beer2",
+         "display_name": "Fermentis WB-06", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Marketed as wheat beer but genetically Beer 2 / Duvel "
+                  "family; STA1+; near WLP570/WY1388",
+         "confidence": "high"},
+        {"id": "WLP644", "parent": "pop_beer2",
+         "display_name": "WLP644 Sacch. 'Trois'", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Originally mislabeled as Brettanomyces; actually "
+                  "S. cerevisiae; from 3 Fonteinen; near Duvel strains; "
+                  "POF-, STA1+", "confidence": "high"},
+
+        # Surprise British strains in Beer 2
+        {"id": "WLP026", "parent": "pop_beer2",
+         "display_name": "WLP026 Premium Bitter", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Marston's; British origin but falls in Beer 2 among "
+                  "Belgian saison strains", "confidence": "high"},
+        {"id": "WLP037", "parent": "pop_beer2",
+         "display_name": "WLP037 Yorkshire Square", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Sam Smith's; British origin but Beer 2",
+         "confidence": "high"},
+        {"id": "WLP038", "parent": "pop_beer2",
+         "display_name": "WLP038 Manchester Ale", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "Manchester; British origin but Beer 2",
+         "confidence": "high"},
     ]
 
     for s in beer2_strains:
         parent = s.pop("parent")
+        conf = s.pop("confidence", "high")
+        s["type"] = "strain"
         s["is_hybrid"] = False
         s["wild"] = False
         _add(s)
-        _div(parent, s["id"])
+        _div(parent, s["id"], confidence=conf)
 
     # ── Mixed clade (bottle refermentation, bread) ───────────────────
     _add({"id": "pop_mixed", "type": "population",
@@ -624,16 +835,98 @@ def add_population_nodes(G: nx.DiGraph) -> nx.DiGraph:
                    "Gallone et al. 2016"})
     _div("S_cerevisiae", "pop_mixed")
 
-    # ── Farmhouse / kveik (admixture: Beer 1 × Asian) ────────────────
+    mixed_strains = [
+        {"id": "S33", "parent": "pop_mixed",
+         "display_name": "Fermentis S-33", "evidence": "sequenced",
+         "fermentation": ["ale", "bread"], "geography": ["UK"],
+         "notes": "EDME origin; near Lallemand Windsor and bread yeasts",
+         "confidence": "high"},
+        {"id": "windsor", "parent": "pop_mixed",
+         "display_name": "Lallemand Windsor", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["UK"],
+         "notes": "From Boots multi-strain culture; very close to S-33; "
+                  "near bread yeasts", "confidence": "high"},
+        {"id": "T58", "parent": "pop_mixed",
+         "display_name": "Fermentis T-58", "evidence": "sequenced",
+         "fermentation": ["ale"], "geography": ["Belgium"],
+         "notes": "Belgian strain; Mixed group, not Beer 1 or Beer 2",
+         "confidence": "medium"},
+    ]
+
+    for s in mixed_strains:
+        parent = s.pop("parent")
+        conf = s.pop("confidence", "high")
+        s["type"] = "strain"
+        s["is_hybrid"] = False
+        s["wild"] = False
+        _add(s)
+        _div(parent, s["id"], confidence=conf)
+
+    # ── Farmhouse / kveik ────────────────────────────────────────────
     _add({"id": "pop_farmhouse", "type": "population",
           "display_name": "Farmhouse (European landrace)", "is_hybrid": False,
           "fermentation": ["farmhouse ale"], "wild": False,
           "geography": ["Norway", "Baltics"],
           "notes": "Kveik, Lithuanian, Latvian; mixed Beer 1 + Asian "
-                   "domesticated ancestry; Preiss et al. 2024"})
+                   "domesticated ancestry; sister group to Beer 1; "
+                   "majority tetraploid; Preiss et al. 2018, 2024"})
     _div("S_cerevisiae", "pop_farmhouse")
     _intro("pop_beer1", "pop_farmhouse", confidence="high")
     _intro("anc_asian_domestic", "pop_farmhouse", confidence="high")
+
+    # Kveik sub-population
+    _add({"id": "kveik_norwegian", "type": "population",
+          "display_name": "Norwegian kveik", "is_hybrid": False,
+          "fermentation": ["farmhouse ale"], "wild": False,
+          "geography": ["Norway"],
+          "notes": "Genetically distinct group; POF-; non-diastatic; "
+                   "high thermotolerance; Preiss et al. 2018"})
+    _div("pop_farmhouse", "kveik_norwegian")
+
+    # Baltic sub-population
+    _add({"id": "kveik_baltic", "type": "population",
+          "display_name": "Baltic landrace", "is_hybrid": False,
+          "fermentation": ["farmhouse ale"], "wild": False,
+          "geography": ["Lithuania", "Latvia"],
+          "notes": "Lithuanian and Latvian landrace strains; separate "
+                   "sub-population from Norwegian kveik; Preiss et al. 2024"})
+    _div("pop_farmhouse", "kveik_baltic")
+
+    kveik_strains = [
+        {"id": "OYL061", "parent": "kveik_norwegian",
+         "display_name": "Omega OYL-061 Voss Kveik", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "From Sigmund Gjernes (Voss); thermotolerant",
+         "confidence": "high"},
+        {"id": "lallemand_voss", "parent": "kveik_norwegian",
+         "display_name": "Lallemand Voss Kveik", "evidence": "equivalent",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "Dry format of Voss kveik", "confidence": "high"},
+        {"id": "OYL091", "parent": "kveik_norwegian",
+         "display_name": "Omega OYL-091 Hornindal", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "Blend from Terje Raftevold; stone fruit and pineapple "
+                  "at high temps", "confidence": "high"},
+        {"id": "OYL071", "parent": "kveik_norwegian",
+         "display_name": "Omega OYL-071 Lutra", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "Single isolate from Hornindal blend; very clean",
+         "confidence": "high"},
+        {"id": "OYL057", "parent": "kveik_norwegian",
+         "display_name": "Omega OYL-057 HotHead", "evidence": "sequenced",
+         "fermentation": ["farmhouse ale"], "geography": ["Norway"],
+         "notes": "From Stranda kveik; collected by Lars Garshol",
+         "confidence": "high"},
+    ]
+
+    for s in kveik_strains:
+        parent = s.pop("parent")
+        conf = s.pop("confidence", "high")
+        s["type"] = "strain"
+        s["is_hybrid"] = False
+        s["wild"] = False
+        _add(s)
+        _div(parent, s["id"], confidence=conf)
 
     # ── Andean chicha ────────────────────────────────────────────────
     _add({"id": "pop_chicha", "type": "population",
@@ -857,14 +1150,25 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
             node_sizes.append(200)
             labels[node] = ""
 
-    # Draw edges by type
-    div_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "divergence"]
+    # Draw edges by type and confidence
+    div_high = [(u, v) for u, v, d in G.edges(data=True)
+                if d["type"] == "divergence" and d.get("confidence") == "high"]
+    div_med = [(u, v) for u, v, d in G.edges(data=True)
+               if d["type"] == "divergence" and d.get("confidence") == "medium"]
+    div_low = [(u, v) for u, v, d in G.edges(data=True)
+               if d["type"] == "divergence" and d.get("confidence") == "low"]
     hyb_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "hybridisation"]
     int_edges = [(u, v) for u, v, d in G.edges(data=True) if d["type"] == "introgression"]
 
-    nx.draw_networkx_edges(G, pos, edgelist=div_edges, ax=ax,
+    nx.draw_networkx_edges(G, pos, edgelist=div_high, ax=ax,
                            edge_color="#2C3E50", width=2.0, arrows=True,
                            arrowsize=15, connectionstyle="arc3,rad=0.0")
+    nx.draw_networkx_edges(G, pos, edgelist=div_med, ax=ax,
+                           edge_color="#2C3E50", width=1.5, style="dashed",
+                           arrows=True, arrowsize=12, connectionstyle="arc3,rad=0.0")
+    nx.draw_networkx_edges(G, pos, edgelist=div_low, ax=ax,
+                           edge_color="#2C3E50", width=1.0, style="dotted",
+                           arrows=True, arrowsize=10, connectionstyle="arc3,rad=0.0")
     nx.draw_networkx_edges(G, pos, edgelist=hyb_edges, ax=ax,
                            edge_color="#E74C3C", width=1.5, style="dashed",
                            arrows=True, arrowsize=12, connectionstyle="arc3,rad=0.1")
@@ -898,7 +1202,9 @@ def plot_static(G: nx.DiGraph, outfile="network.png"):
         mpatches.Patch(color="#F39C12", label="Strain"),
         mpatches.Patch(color="#8E44AD", label="Wild"),
         mpatches.Patch(color="#95A5A6", label="Ancestor"),
-        plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence"),
+        plt.Line2D([0], [0], color="#2C3E50", lw=2, label="Divergence (high)"),
+        plt.Line2D([0], [0], color="#2C3E50", lw=1.5, ls="--", label="Divergence (medium)"),
+        plt.Line2D([0], [0], color="#2C3E50", lw=1.0, ls=":", label="Divergence (low)"),
         plt.Line2D([0], [0], color="#E74C3C", lw=1.5, ls="--", label="Hybridisation"),
         plt.Line2D([0], [0], color="#F39C12", lw=1.2, ls=":", label="Introgression"),
     ]
@@ -974,7 +1280,10 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
             color = "#F39C12"
             size = 14
             label = name
+            evidence = data.get("evidence", "")
             title = f"<b>{name}</b><br>{notes}"
+            if evidence:
+                title += f"<br>Evidence: {evidence}"
             ferm = data.get("fermentation", [])
             geo = data.get("geography", [])
             if ferm:
@@ -1003,11 +1312,19 @@ def plot_interactive(G: nx.DiGraph, outfile="network.html"):
         etype = data.get("type", "")
         frac = data.get("admixture_fraction")
 
+        conf = data.get("confidence", "high")
         if etype == "divergence":
             color = "#2C3E50"
-            width = 2.5
-            dashes = False
-            title = "Divergence"
+            if conf == "high":
+                width = 2.5
+                dashes = False
+            elif conf == "medium":
+                width = 1.8
+                dashes = [10, 5]
+            else:  # low
+                width = 1.2
+                dashes = [3, 5]
+            title = f"Divergence ({conf})"
         elif etype == "hybridisation":
             color = "#E74C3C"
             width = 2.0
