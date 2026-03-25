@@ -619,9 +619,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Init
-centreView();
+// Init – resize first so W/H are defined for centreView
 resize();
+centreView();
+draw();
 </script>
 </body>
 </html>
