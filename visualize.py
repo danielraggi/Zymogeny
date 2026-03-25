@@ -486,12 +486,17 @@ function drawNode(n) {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Label
-  const fontSize = n.type === 'strain' ? 10 : 12;
-  ctx.font = (n.type === 'species' ? 'bold ' : '') + `${fontSize}px 'Segoe UI', system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = highlighted ? '#ddd' : '#555';
-  ctx.fillText(n.label, s.x, s.y + r + fontSize + 3);
+  // Label – hide strain labels unless hovered, focused, or searched
+  const showLabel = n.type !== 'strain'
+    || hoveredNode === n || isFocused || isSearchTarget
+    || (focusedNode && adjacency[focusedNode.id].has(n.id));
+  if (showLabel) {
+    const fontSize = n.type === 'strain' ? 10 : 12;
+    ctx.font = (n.type === 'species' ? 'bold ' : '') + `${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = highlighted ? '#ddd' : '#555';
+    ctx.fillText(n.label, s.x, s.y + r + fontSize + 3);
+  }
   ctx.globalAlpha = 1.0;
 }
 
@@ -688,7 +693,7 @@ draw();
 
 def generate_html(output_path: str = "phylogeny.html"):
     G = build_network()
-    result = hierarchical_layout(G, node_spacing=160, layer_spacing=260, sweeps=30)
+    result = hierarchical_layout(G, node_spacing=200, layer_spacing=320, sweeps=30)
     vis_data = build_vis_data(G, result)
     html = HTML_TEMPLATE.replace("__DATA__", json.dumps(vis_data))
     with open(output_path, "w") as f:
