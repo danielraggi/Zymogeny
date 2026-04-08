@@ -6,58 +6,246 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #1a1a2e; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
-#canvas { display: block; }
+#canvas { display: block; cursor: grab; }
+#canvas.grabbing { cursor: grabbing; }
+
+/* ─── Search bar ─── */
+#search-container {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 10;
+}
+#search {
+  width: 320px; padding: 10px 16px 10px 38px;
+  background: rgba(30,30,50,0.94); color: #eee;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 24px;
+  font-size: 14px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+#search:focus {
+  border-color: rgba(52,152,219,0.6);
+  box-shadow: 0 0 12px rgba(52,152,219,0.2);
+}
+#search::placeholder { color: #666; }
+#search-icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: #666; font-size: 14px; pointer-events: none;
+}
+#search-results {
+  position: absolute; top: 44px; left: 0; right: 0;
+  background: rgba(25,25,45,0.97); border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  max-height: 260px; overflow-y: auto; display: none;
+}
+.search-item {
+  padding: 8px 16px; color: #ccc; cursor: pointer;
+  font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.search-item:hover { background: rgba(52,152,219,0.15); color: #fff; }
+.search-item .type-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 8px;
+  font-size: 10px; margin-left: 8px; color: #fff; opacity: 0.85;
+}
+
+/* ─── Filter bar ─── */
+#filter-bar {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+  z-index: 9; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+}
+.filter-chip {
+  padding: 4px 12px; border-radius: 14px; font-size: 11px;
+  background: rgba(30,30,50,0.9); color: #aaa; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.2s; user-select: none;
+}
+.filter-chip.active { color: #fff; border-color: rgba(255,255,255,0.25); }
+.filter-chip:hover { background: rgba(50,50,80,0.9); }
+
+/* ─── Legend ─── */
 #legend {
   position: fixed; top: 16px; right: 16px;
-  background: rgba(30,30,50,0.92); border-radius: 8px; padding: 14px 18px;
-  color: #ccc; font-size: 13px; line-height: 1.8;
+  background: rgba(30,30,50,0.92); border-radius: 10px; padding: 14px 18px;
+  color: #ccc; font-size: 13px; line-height: 1.9;
   border: 1px solid rgba(255,255,255,0.08);
+  z-index: 10;
 }
+.legend-row {
+  cursor: pointer; padding: 1px 4px; border-radius: 4px;
+  transition: opacity 0.2s;
+}
+.legend-row:hover { background: rgba(255,255,255,0.05); }
+.legend-row.dimmed { opacity: 0.35; }
 .legend-dot {
   display: inline-block; width: 12px; height: 12px; border-radius: 50%;
   margin-right: 6px; vertical-align: middle;
 }
+
+/* ─── Tooltip ─── */
 #tooltip {
   position: fixed; display: none; pointer-events: none;
-  background: rgba(20,20,40,0.95); color: #eee; padding: 8px 12px;
-  border-radius: 6px; font-size: 12px; border: 1px solid rgba(255,255,255,0.1);
-  max-width: 260px;
+  background: rgba(20,20,40,0.96); color: #eee; padding: 10px 14px;
+  border-radius: 8px; font-size: 12px; line-height: 1.6;
+  border: 1px solid rgba(255,255,255,0.1);
+  max-width: 300px; z-index: 20;
+  backdrop-filter: blur(8px);
 }
+.tooltip-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.tooltip-row { color: #aaa; }
+.tooltip-row span { color: #ddd; }
+.tooltip-tag {
+  display: inline-block; padding: 1px 7px; border-radius: 8px;
+  font-size: 10px; margin: 1px 2px; background: rgba(255,255,255,0.08);
+  color: #ccc;
+}
+
+/* ─── Controls ─── */
 #controls {
   position: fixed; bottom: 16px; left: 16px;
-  color: #888; font-size: 12px;
+  color: #666; font-size: 11px; z-index: 10;
 }
+
+/* ─── Stats badge ─── */
+#stats {
+  position: fixed; bottom: 16px; right: 16px;
+  color: #555; font-size: 11px; z-index: 10;
+}
+
+/* Scrollbar */
+#search-results::-webkit-scrollbar { width: 5px; }
+#search-results::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 </style>
 </head>
 <body>
+
+<div id="search-container">
+  <span id="search-icon">&#128269;</span>
+  <input id="search" type="text" placeholder="Search strains, species, populations..." autocomplete="off">
+  <div id="search-results"></div>
+</div>
+
+<div id="filter-bar"></div>
+
 <canvas id="canvas"></canvas>
+
 <div id="legend">
-  <strong style="color:#fff">Node types</strong><br>
-  <span class="legend-dot" style="background:#2e8b57"></span>Species<br>
-  <span class="legend-dot" style="background:#e67e22"></span>Hybrid<br>
-  <span class="legend-dot" style="background:#3498db"></span>Population<br>
-  <span class="legend-dot" style="background:#f39c12"></span>Strain<br>
+  <strong style="color:#fff">Node types</strong> <span style="font-size:10px;color:#666">(click to toggle)</span><br>
+  <div class="legend-row" data-type="species"><span class="legend-dot" style="background:#2e8b57"></span>Species</div>
+  <div class="legend-row" data-type="hybrid"><span class="legend-dot" style="background:#e67e22"></span>Hybrid</div>
+  <div class="legend-row" data-type="population"><span class="legend-dot" style="background:#3498db"></span>Population</div>
+  <div class="legend-row" data-type="strain"><span class="legend-dot" style="background:#f39c12"></span>Strain</div>
   <br>
   <strong style="color:#fff">Edge types</strong><br>
   <span style="color:#667">━━</span> Divergence<br>
   <span style="color:#e67e22">╌╌</span> Hybridisation<br>
   <span style="color:#9b59b6">┈┈</span> Introgression
 </div>
+
 <div id="tooltip"></div>
-<div id="controls">Scroll to zoom · Drag to pan · Hover nodes for details</div>
+<div id="controls">Scroll to zoom · Drag to pan · Hover for details · Click node to focus</div>
+<div id="stats"></div>
 
 <script>
-const DATA = {"nodes": [{"id": "outgroup", "x": 0, "y": 2120.0, "label": "N. castellii", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_arboricola", "x": 260, "y": 624.0, "label": "S. arboricola", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_kudriavzevii", "x": 260, "y": 2384.0, "label": "S. kudriavzevii", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_mikatae", "x": 520, "y": 688.0, "label": "S. mikatae", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_jurei", "x": 780, "y": 688.0, "label": "S. jurei", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_paradoxus", "x": 780, "y": 1488.0, "label": "S. paradoxus", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_uvarum", "x": 1040, "y": 1368.0, "label": "S. uvarum", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_eubayanus", "x": 1300, "y": 1120.0, "label": "S. eubayanus", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_cerevisiae", "x": 1300, "y": 2400.0, "label": "S. cerevisiae", "type": "species", "color": "#2e8b57", "is_hybrid": false}, {"id": "S_bayanus", "x": 1560, "y": 504.0, "label": "S. bayanus CBS 380", "type": "hybrid", "color": "#e67e22", "is_hybrid": true}, {"id": "S_pastorianus", "x": 1560, "y": 824.0, "label": "S. pastorianus", "type": "hybrid", "color": "#e67e22", "is_hybrid": true}, {"id": "Sc_Su_hybrid", "x": 1560, "y": 984.0, "label": "S. cer. \u00d7 S. uva.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true}, {"id": "malaysian", "x": 1560, "y": 1144.0, "label": "Malaysian", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "north_american", "x": 1560, "y": 1304.0, "label": "North American", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "wild_root", "x": 1560, "y": 1464.0, "label": "Wild (root)", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "beer1", "x": 1560, "y": 2104.0, "label": "Beer 1", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "beer2", "x": 1560, "y": 3064.0, "label": "Beer 2", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "wine_european", "x": 1560, "y": 3864.0, "label": "Wine / European", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "sake", "x": 1560, "y": 4344.0, "label": "Sake", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "west_african", "x": 1560, "y": 4664.0, "label": "West African", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "andean_chicha", "x": 1560, "y": 1784.0, "label": "Andean chicha", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "Sc_Sk_hybrid", "x": 1560, "y": 1944.0, "label": "S. cer. \u00d7 S. kud.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true}, {"id": "triple_hybrid", "x": 1560, "y": 1624.0, "label": "S. cer. \u00d7 kud. \u00d7 uva.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true}, {"id": "WLP001", "x": 1820, "y": 1456.0, "label": "WLP001 Cal. Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY1056", "x": 1820, "y": 1616.0, "label": "WY1056 American Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "US05", "x": 1820, "y": 1776.0, "label": "Fermentis US-05", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WLP002", "x": 1820, "y": 1936.0, "label": "WLP002 English Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY1968", "x": 1820, "y": 2096.0, "label": "WY1968 London ESB", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL004", "x": 1820, "y": 2256.0, "label": "Omega OYL-004 West Coast Ale I", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "S04", "x": 1820, "y": 2416.0, "label": "Fermentis S-04", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WLP400", "x": 1820, "y": 2576.0, "label": "WLP400 Belgian Wit", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY3944", "x": 1820, "y": 2736.0, "label": "WY3944 Belgian Wit", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WLP565", "x": 1820, "y": 2896.0, "label": "WLP565 Belgian Saison I", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY3724", "x": 1820, "y": 3056.0, "label": "WY3724 Belgian Saison", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL026", "x": 1820, "y": 3216.0, "label": "Omega OYL-026 French Saison", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "EC1118", "x": 1820, "y": 3376.0, "label": "Lalvin EC-1118", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "D47", "x": 1820, "y": 3536.0, "label": "Lalvin ICV-D47", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WLP715", "x": 1820, "y": 3696.0, "label": "WLP715 Champagne", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "QA23", "x": 1820, "y": 3856.0, "label": "Lalvin QA23", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "BM45", "x": 1820, "y": 4016.0, "label": "Lalvin BM45", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "farmhouse", "x": 1820, "y": 5136.0, "label": "Farmhouse", "type": "population", "color": "#3498db", "is_hybrid": false}, {"id": "WLP705", "x": 1820, "y": 4176.0, "label": "WLP705 Sake", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY4134", "x": 1820, "y": 4336.0, "label": "WY4134 Sake #9", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WLP300", "x": 1820, "y": 4496.0, "label": "WLP300 Hefeweizen", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "WY3068", "x": 1820, "y": 4656.0, "label": "WY3068 Weihenstephan Weizen", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL033", "x": 2080, "y": 4216.0, "label": "Omega OYL-033 Jovaru", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL036", "x": 2080, "y": 4376.0, "label": "Omega OYL-036 Simonaitis", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL057", "x": 2080, "y": 4536.0, "label": "Omega OYL-057 HotHead", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL061", "x": 2080, "y": 4696.0, "label": "Omega OYL-061 Voss Kveik", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL071", "x": 2080, "y": 4856.0, "label": "Omega OYL-071 Lutra", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "OYL090", "x": 2080, "y": 5016.0, "label": "Omega OYL-090 Espe Kveik", "type": "strain", "color": "#f39c12", "is_hybrid": false}, {"id": "ESCLIT", "x": 2080, "y": 5176.0, "label": "Escarpment Ecobrau Lithuanian", "type": "strain", "color": "#f39c12", "is_hybrid": false}], "edges": [{"source": "outgroup", "target": "S_arboricola", "points": [{"x": 0, "y": 2120.0}, {"x": 260, "y": 624.0}], "type": "divergence", "admixture": null}, {"source": "outgroup", "target": "S_kudriavzevii", "points": [{"x": 0, "y": 2120.0}, {"x": 260, "y": 2384.0}], "type": "divergence", "admixture": null}, {"source": "S_kudriavzevii", "target": "S_mikatae", "points": [{"x": 260, "y": 2384.0}, {"x": 520, "y": 688.0}], "type": "divergence", "admixture": null}, {"source": "S_kudriavzevii", "target": "Sc_Sk_hybrid", "points": [{"x": 260, "y": 2384.0}, {"x": 520, "y": 2768.0}, {"x": 780, "y": 2768.0}, {"x": 1040, "y": 2648.0}, {"x": 1300, "y": 2720.0}, {"x": 1560, "y": 1944.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_kudriavzevii", "target": "triple_hybrid", "points": [{"x": 260, "y": 2384.0}, {"x": 520, "y": 2768.0}, {"x": 780, "y": 2768.0}, {"x": 1040, "y": 2648.0}, {"x": 1300, "y": 2720.0}, {"x": 1560, "y": 1624.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_mikatae", "target": "S_jurei", "points": [{"x": 520, "y": 688.0}, {"x": 780, "y": 688.0}], "type": "divergence", "admixture": null}, {"source": "S_mikatae", "target": "S_paradoxus", "points": [{"x": 520, "y": 688.0}, {"x": 780, "y": 1488.0}], "type": "divergence", "admixture": null}, {"source": "S_paradoxus", "target": "S_uvarum", "points": [{"x": 780, "y": 1488.0}, {"x": 1040, "y": 1368.0}], "type": "divergence", "admixture": null}, {"source": "S_paradoxus", "target": "andean_chicha", "points": [{"x": 780, "y": 1488.0}, {"x": 1040, "y": 2488.0}, {"x": 1300, "y": 2560.0}, {"x": 1560, "y": 1784.0}], "type": "introgression", "admixture": 0.1}, {"source": "S_uvarum", "target": "S_eubayanus", "points": [{"x": 1040, "y": 1368.0}, {"x": 1300, "y": 1120.0}], "type": "divergence", "admixture": null}, {"source": "S_uvarum", "target": "S_cerevisiae", "points": [{"x": 1040, "y": 1368.0}, {"x": 1300, "y": 2400.0}], "type": "divergence", "admixture": null}, {"source": "S_uvarum", "target": "Sc_Su_hybrid", "points": [{"x": 1040, "y": 1368.0}, {"x": 1300, "y": 1440.0}, {"x": 1560, "y": 984.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_uvarum", "target": "triple_hybrid", "points": [{"x": 1040, "y": 1368.0}, {"x": 1300, "y": 1440.0}, {"x": 1560, "y": 1624.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_uvarum", "target": "S_bayanus", "points": [{"x": 1040, "y": 1368.0}, {"x": 1300, "y": 1440.0}, {"x": 1560, "y": 504.0}], "type": "hybridisation", "admixture": 0.67}, {"source": "S_eubayanus", "target": "S_pastorianus", "points": [{"x": 1300, "y": 1120.0}, {"x": 1560, "y": 824.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_eubayanus", "target": "S_bayanus", "points": [{"x": 1300, "y": 1120.0}, {"x": 1560, "y": 504.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_cerevisiae", "target": "S_pastorianus", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 824.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "Sc_Sk_hybrid", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1944.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "Sc_Su_hybrid", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 984.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "triple_hybrid", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1624.0}], "type": "hybridisation", "admixture": 0.34}, {"source": "S_cerevisiae", "target": "beer1", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 2104.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "beer2", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 3064.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "wine_european", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 3864.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "sake", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 4344.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "west_african", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 4664.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "malaysian", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1144.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "north_american", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1304.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "farmhouse", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 5304.0}, {"x": 1820, "y": 5136.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "wild_root", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1464.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "andean_chicha", "points": [{"x": 1300, "y": 2400.0}, {"x": 1560, "y": 1784.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "farmhouse", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 5136.0}], "type": "introgression", "admixture": 0.3}, {"source": "beer1", "target": "WLP001", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 1456.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WY1056", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 1616.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "US05", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 1776.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WLP002", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 1936.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WY1968", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 2096.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "OYL004", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 2256.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "S04", "points": [{"x": 1560, "y": 2104.0}, {"x": 1820, "y": 2416.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WLP400", "points": [{"x": 1560, "y": 3064.0}, {"x": 1820, "y": 2576.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WY3944", "points": [{"x": 1560, "y": 3064.0}, {"x": 1820, "y": 2736.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WLP565", "points": [{"x": 1560, "y": 3064.0}, {"x": 1820, "y": 2896.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WY3724", "points": [{"x": 1560, "y": 3064.0}, {"x": 1820, "y": 3056.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "OYL026", "points": [{"x": 1560, "y": 3064.0}, {"x": 1820, "y": 3216.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "EC1118", "points": [{"x": 1560, "y": 3864.0}, {"x": 1820, "y": 3376.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "D47", "points": [{"x": 1560, "y": 3864.0}, {"x": 1820, "y": 3536.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "WLP715", "points": [{"x": 1560, "y": 3864.0}, {"x": 1820, "y": 3696.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "QA23", "points": [{"x": 1560, "y": 3864.0}, {"x": 1820, "y": 3856.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "BM45", "points": [{"x": 1560, "y": 3864.0}, {"x": 1820, "y": 4016.0}], "type": "divergence", "admixture": null}, {"source": "sake", "target": "WLP705", "points": [{"x": 1560, "y": 4344.0}, {"x": 1820, "y": 4176.0}], "type": "divergence", "admixture": null}, {"source": "sake", "target": "WY4134", "points": [{"x": 1560, "y": 4344.0}, {"x": 1820, "y": 4336.0}], "type": "divergence", "admixture": null}, {"source": "west_african", "target": "WLP300", "points": [{"x": 1560, "y": 4664.0}, {"x": 1820, "y": 4496.0}], "type": "divergence", "admixture": null}, {"source": "west_african", "target": "WY3068", "points": [{"x": 1560, "y": 4664.0}, {"x": 1820, "y": 4656.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL033", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 4216.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL036", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 4376.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL057", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 4536.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL061", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 4696.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL071", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 4856.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL090", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 5016.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "ESCLIT", "points": [{"x": 1820, "y": 5136.0}, {"x": 2080, "y": 5176.0}], "type": "divergence", "admixture": null}]};
+const DATA = {"nodes": [{"id": "outgroup", "x": 0, "y": 0.0, "label": "N. castellii", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_arboricola", "x": 320, "y": 0.0, "label": "S. arboricola", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_kudriavzevii", "x": 320, "y": 200.0, "label": "S. kudriavzevii", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_mikatae", "x": 640, "y": 200.0, "label": "S. mikatae", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_jurei", "x": 960, "y": 200.0, "label": "S. jurei", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_paradoxus", "x": 960, "y": 400.0, "label": "S. paradoxus", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_uvarum", "x": 1280, "y": 600.0, "label": "S. uvarum", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": ["wine", "cider"], "wild": false}, {"id": "S_eubayanus", "x": 1600, "y": 600.0, "label": "S. eubayanus", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "S_cerevisiae", "x": 1600, "y": 2000.0, "label": "S. cerevisiae", "type": "species", "color": "#2e8b57", "is_hybrid": false, "fermentation": ["ale", "wine", "sake", "bread"], "wild": false}, {"id": "S_bayanus", "x": 1920, "y": 400.0, "label": "S. bayanus CBS 380", "type": "hybrid", "color": "#e67e22", "is_hybrid": true, "fermentation": ["wine"], "wild": false}, {"id": "S_pastorianus", "x": 1920, "y": 600.0, "label": "S. pastorianus", "type": "hybrid", "color": "#e67e22", "is_hybrid": true, "fermentation": ["lager"], "wild": false}, {"id": "Sc_Su_hybrid", "x": 1920, "y": 800.0, "label": "S. cer. \u00d7 S. uva.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true, "fermentation": ["wine", "cider"], "wild": false}, {"id": "malaysian", "x": 1920, "y": 1000.0, "label": "Malaysian", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "north_american", "x": 1920, "y": 1200.0, "label": "North American", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "wild_root", "x": 1920, "y": 1400.0, "label": "Wild (root)", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": [], "wild": true}, {"id": "beer1", "x": 1920, "y": 2200.0, "label": "Beer 1", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["ale"], "wild": false}, {"id": "beer2", "x": 1920, "y": 3200.0, "label": "Beer 2", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["wheat beer", "saison"], "wild": false}, {"id": "wine_european", "x": 1920, "y": 4200.0, "label": "Wine / European", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["wine", "bread"], "wild": false}, {"id": "sake", "x": 1920, "y": 5000.0, "label": "Sake", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["sake"], "wild": false}, {"id": "west_african", "x": 1920, "y": 5400.0, "label": "West African", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["palm wine"], "wild": false}, {"id": "farmhouse", "x": 1920, "y": 6200.0, "label": "Farmhouse", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["farmhouse ale"], "wild": false}, {"id": "andean_chicha", "x": 1920, "y": 1600.0, "label": "Andean chicha", "type": "population", "color": "#3498db", "is_hybrid": false, "fermentation": ["chicha"], "wild": false}, {"id": "Sc_Sk_hybrid", "x": 1920, "y": 1800.0, "label": "S. cer. \u00d7 S. kud.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true, "fermentation": ["wine"], "wild": false}, {"id": "triple_hybrid", "x": 1920, "y": 2000.0, "label": "S. cer. \u00d7 kud. \u00d7 uva.", "type": "hybrid", "color": "#e67e22", "is_hybrid": true, "fermentation": ["wine"], "wild": false}, {"id": "WLP001", "x": 2240, "y": 1600.0, "label": "WLP001 Cal. Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY1056", "x": 2240, "y": 1800.0, "label": "WY1056 American Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "US05", "x": 2240, "y": 2000.0, "label": "Fermentis US-05", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP002", "x": 2240, "y": 2200.0, "label": "WLP002 English Ale", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY1968", "x": 2240, "y": 2400.0, "label": "WY1968 London ESB", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL004", "x": 2240, "y": 2600.0, "label": "Omega OYL-004 West Coast Ale I", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "S04", "x": 2240, "y": 2800.0, "label": "Fermentis S-04", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP400", "x": 2240, "y": 3000.0, "label": "WLP400 Belgian Wit", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY3944", "x": 2240, "y": 3200.0, "label": "WY3944 Belgian Wit", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP565", "x": 2240, "y": 3400.0, "label": "WLP565 Belgian Saison I", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY3724", "x": 2240, "y": 3600.0, "label": "WY3724 Belgian Saison", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL026", "x": 2240, "y": 3800.0, "label": "Omega OYL-026 French Saison", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "EC1118", "x": 2240, "y": 4000.0, "label": "Lalvin EC-1118", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "D47", "x": 2240, "y": 4200.0, "label": "Lalvin ICV-D47", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP715", "x": 2240, "y": 4400.0, "label": "WLP715 Champagne", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "QA23", "x": 2240, "y": 4600.0, "label": "Lalvin QA23", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "BM45", "x": 2240, "y": 4800.0, "label": "Lalvin BM45", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP705", "x": 2240, "y": 5000.0, "label": "WLP705 Sake", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY4134", "x": 2240, "y": 5200.0, "label": "WY4134 Sake #9", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WLP300", "x": 2240, "y": 5400.0, "label": "WLP300 Hefeweizen", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "WY3068", "x": 2240, "y": 5600.0, "label": "WY3068 Weihenstephan Weizen", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL033", "x": 2240, "y": 5800.0, "label": "Omega OYL-033 Jovaru", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL036", "x": 2240, "y": 6000.0, "label": "Omega OYL-036 Simonaitis", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL057", "x": 2240, "y": 6200.0, "label": "Omega OYL-057 HotHead", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL061", "x": 2240, "y": 6400.0, "label": "Omega OYL-061 Voss Kveik", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL071", "x": 2240, "y": 6600.0, "label": "Omega OYL-071 Lutra", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "OYL090", "x": 2240, "y": 6800.0, "label": "Omega OYL-090 Espe Kveik", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}, {"id": "ESCLIT", "x": 2240, "y": 7000.0, "label": "Escarpment Ecobrau Lithuanian", "type": "strain", "color": "#f39c12", "is_hybrid": false, "fermentation": [], "wild": false}], "edges": [{"source": "outgroup", "target": "S_arboricola", "points": [{"x": 0, "y": 0.0}, {"x": 320, "y": 0.0}], "type": "divergence", "admixture": null}, {"source": "outgroup", "target": "S_kudriavzevii", "points": [{"x": 0, "y": 0.0}, {"x": 320, "y": 200.0}], "type": "divergence", "admixture": null}, {"source": "S_kudriavzevii", "target": "S_mikatae", "points": [{"x": 320, "y": 200.0}, {"x": 640, "y": 200.0}], "type": "divergence", "admixture": null}, {"source": "S_kudriavzevii", "target": "Sc_Sk_hybrid", "points": [{"x": 320, "y": 200.0}, {"x": 640, "y": 400.0}, {"x": 960, "y": 600.0}, {"x": 1280, "y": 800.0}, {"x": 1600, "y": 1400.0}, {"x": 1920, "y": 1800.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_kudriavzevii", "target": "triple_hybrid", "points": [{"x": 320, "y": 200.0}, {"x": 640, "y": 400.0}, {"x": 960, "y": 600.0}, {"x": 1280, "y": 800.0}, {"x": 1600, "y": 1400.0}, {"x": 1920, "y": 2000.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_mikatae", "target": "S_jurei", "points": [{"x": 640, "y": 200.0}, {"x": 960, "y": 200.0}], "type": "divergence", "admixture": null}, {"source": "S_mikatae", "target": "S_paradoxus", "points": [{"x": 640, "y": 200.0}, {"x": 960, "y": 400.0}], "type": "divergence", "admixture": null}, {"source": "S_paradoxus", "target": "S_uvarum", "points": [{"x": 960, "y": 400.0}, {"x": 1280, "y": 600.0}], "type": "divergence", "admixture": null}, {"source": "S_paradoxus", "target": "andean_chicha", "points": [{"x": 960, "y": 400.0}, {"x": 1280, "y": 400.0}, {"x": 1600, "y": 1200.0}, {"x": 1920, "y": 1600.0}], "type": "introgression", "admixture": 0.1}, {"source": "S_uvarum", "target": "S_eubayanus", "points": [{"x": 1280, "y": 600.0}, {"x": 1600, "y": 600.0}], "type": "divergence", "admixture": null}, {"source": "S_uvarum", "target": "S_cerevisiae", "points": [{"x": 1280, "y": 600.0}, {"x": 1600, "y": 2000.0}], "type": "divergence", "admixture": null}, {"source": "S_uvarum", "target": "Sc_Su_hybrid", "points": [{"x": 1280, "y": 600.0}, {"x": 1600, "y": 800.0}, {"x": 1920, "y": 800.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_uvarum", "target": "triple_hybrid", "points": [{"x": 1280, "y": 600.0}, {"x": 1600, "y": 800.0}, {"x": 1920, "y": 2000.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_uvarum", "target": "S_bayanus", "points": [{"x": 1280, "y": 600.0}, {"x": 1600, "y": 800.0}, {"x": 1920, "y": 400.0}], "type": "hybridisation", "admixture": 0.67}, {"source": "S_eubayanus", "target": "S_pastorianus", "points": [{"x": 1600, "y": 600.0}, {"x": 1920, "y": 600.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_eubayanus", "target": "S_bayanus", "points": [{"x": 1600, "y": 600.0}, {"x": 1920, "y": 400.0}], "type": "hybridisation", "admixture": 0.33}, {"source": "S_cerevisiae", "target": "S_pastorianus", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 600.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "Sc_Sk_hybrid", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 1800.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "Sc_Su_hybrid", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 800.0}], "type": "hybridisation", "admixture": 0.5}, {"source": "S_cerevisiae", "target": "triple_hybrid", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 2000.0}], "type": "hybridisation", "admixture": 0.34}, {"source": "S_cerevisiae", "target": "beer1", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 2200.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "beer2", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 3200.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "wine_european", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 4200.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "sake", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 5000.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "west_african", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 5400.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "malaysian", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 1000.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "north_american", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 1200.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "farmhouse", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 6200.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "wild_root", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 1400.0}], "type": "divergence", "admixture": null}, {"source": "S_cerevisiae", "target": "andean_chicha", "points": [{"x": 1600, "y": 2000.0}, {"x": 1920, "y": 1600.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "farmhouse", "points": [{"x": 1920, "y": 2200.0}, {"x": 1920, "y": 6200.0}], "type": "introgression", "admixture": 0.3}, {"source": "beer1", "target": "WLP001", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 1600.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WY1056", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 1800.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "US05", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 2000.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WLP002", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 2200.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "WY1968", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 2400.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "OYL004", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 2600.0}], "type": "divergence", "admixture": null}, {"source": "beer1", "target": "S04", "points": [{"x": 1920, "y": 2200.0}, {"x": 2240, "y": 2800.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WLP400", "points": [{"x": 1920, "y": 3200.0}, {"x": 2240, "y": 3000.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WY3944", "points": [{"x": 1920, "y": 3200.0}, {"x": 2240, "y": 3200.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WLP565", "points": [{"x": 1920, "y": 3200.0}, {"x": 2240, "y": 3400.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "WY3724", "points": [{"x": 1920, "y": 3200.0}, {"x": 2240, "y": 3600.0}], "type": "divergence", "admixture": null}, {"source": "beer2", "target": "OYL026", "points": [{"x": 1920, "y": 3200.0}, {"x": 2240, "y": 3800.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "EC1118", "points": [{"x": 1920, "y": 4200.0}, {"x": 2240, "y": 4000.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "D47", "points": [{"x": 1920, "y": 4200.0}, {"x": 2240, "y": 4200.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "WLP715", "points": [{"x": 1920, "y": 4200.0}, {"x": 2240, "y": 4400.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "QA23", "points": [{"x": 1920, "y": 4200.0}, {"x": 2240, "y": 4600.0}], "type": "divergence", "admixture": null}, {"source": "wine_european", "target": "BM45", "points": [{"x": 1920, "y": 4200.0}, {"x": 2240, "y": 4800.0}], "type": "divergence", "admixture": null}, {"source": "sake", "target": "WLP705", "points": [{"x": 1920, "y": 5000.0}, {"x": 2240, "y": 5000.0}], "type": "divergence", "admixture": null}, {"source": "sake", "target": "WY4134", "points": [{"x": 1920, "y": 5000.0}, {"x": 2240, "y": 5200.0}], "type": "divergence", "admixture": null}, {"source": "west_african", "target": "WLP300", "points": [{"x": 1920, "y": 5400.0}, {"x": 2240, "y": 5400.0}], "type": "divergence", "admixture": null}, {"source": "west_african", "target": "WY3068", "points": [{"x": 1920, "y": 5400.0}, {"x": 2240, "y": 5600.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL033", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 5800.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL036", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 6000.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL057", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 6200.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL061", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 6400.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL071", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 6600.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "OYL090", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 6800.0}], "type": "divergence", "admixture": null}, {"source": "farmhouse", "target": "ESCLIT", "points": [{"x": 1920, "y": 6200.0}, {"x": 2240, "y": 7000.0}], "type": "divergence", "admixture": null}]};
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const tooltip = document.getElementById('tooltip');
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+const filterBar = document.getElementById('filter-bar');
+const statsEl = document.getElementById('stats');
 
 let W, H, dpr;
 let camX = 0, camY = 0, zoom = 1;
 let dragging = false, dragStartX, dragStartY, camStartX, camStartY;
 let hoveredNode = null;
+let focusedNode = null;       // click-to-focus
+let searchHighlight = null;   // search highlight
+let hiddenTypes = new Set();  // legend toggle
+let activeFermentation = null; // fermentation filter
 
+// Build edge lookup: node id → connected edges
+const edgesByNode = {};
+for (const n of DATA.nodes) edgesByNode[n.id] = [];
+for (const e of DATA.edges) {
+  if (edgesByNode[e.source]) edgesByNode[e.source].push(e);
+  if (edgesByNode[e.target]) edgesByNode[e.target].push(e);
+}
+
+// Build adjacency: node id → set of connected node ids
+const adjacency = {};
+for (const n of DATA.nodes) adjacency[n.id] = new Set();
+for (const e of DATA.edges) {
+  if (adjacency[e.source]) adjacency[e.source].add(e.target);
+  if (adjacency[e.target]) adjacency[e.target].add(e.source);
+}
+
+// ─── Collect all fermentation types for filter chips ───
+const allFermentations = new Set();
+for (const n of DATA.nodes) {
+  for (const f of (n.fermentation || [])) allFermentations.add(f);
+}
+const fermList = [...allFermentations].sort();
+for (const f of fermList) {
+  const chip = document.createElement('div');
+  chip.className = 'filter-chip';
+  chip.textContent = f;
+  chip.addEventListener('click', () => {
+    if (activeFermentation === f) {
+      activeFermentation = null;
+      chip.classList.remove('active');
+    } else {
+      activeFermentation = f;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    }
+    focusedNode = null;
+    draw();
+  });
+  filterBar.appendChild(chip);
+}
+
+// ─── Stats ───
+const typeCounts = {};
+for (const n of DATA.nodes) typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
+statsEl.textContent = `${DATA.nodes.length} nodes · ${DATA.edges.length} edges`;
+
+// ─── Visibility helpers ───
+function isNodeVisible(n) {
+  if (hiddenTypes.has(n.type)) return false;
+  return true;
+}
+
+function isNodeHighlighted(n) {
+  // If fermentation filter is active, check membership
+  if (activeFermentation) {
+    return (n.fermentation || []).includes(activeFermentation);
+  }
+  // If a node is focused, only it and neighbors are highlighted
+  if (focusedNode) {
+    return n.id === focusedNode.id || adjacency[focusedNode.id].has(n.id);
+  }
+  // Search highlight
+  if (searchHighlight) {
+    return n.id === searchHighlight.id;
+  }
+  return true; // all highlighted when no filter active
+}
+
+function isEdgeHighlighted(e) {
+  if (activeFermentation) {
+    const sNode = DATA.nodes.find(n => n.id === e.source);
+    const tNode = DATA.nodes.find(n => n.id === e.target);
+    const sMatch = sNode && (sNode.fermentation || []).includes(activeFermentation);
+    const tMatch = tNode && (tNode.fermentation || []).includes(activeFermentation);
+    return sMatch || tMatch;
+  }
+  if (focusedNode) {
+    return e.source === focusedNode.id || e.target === focusedNode.id;
+  }
+  return true;
+}
+
+// ─── Resize ───
 function resize() {
   dpr = window.devicePixelRatio || 1;
   W = window.innerWidth; H = window.innerHeight;
@@ -68,7 +256,6 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-// Centre the graph initially
 function centreView() {
   if (!DATA.nodes.length) return;
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -85,24 +272,62 @@ function centreView() {
 function screenToWorld(sx, sy) {
   return { x: sx / zoom + camX, y: sy / zoom + camY };
 }
-
 function worldToScreen(wx, wy) {
   return { x: (wx - camX) * zoom, y: (wy - camY) * zoom };
 }
 
+// Smooth pan-to-node animation
+function panToNode(n, cb) {
+  const targetCamX = n.x - W / (2 * zoom);
+  const targetCamY = n.y - H / (2 * zoom);
+  const startX = camX, startY = camY;
+  const duration = 400;
+  const start = performance.now();
+  function step(t) {
+    const elapsed = t - start;
+    const p = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    camX = startX + (targetCamX - startX) * ease;
+    camY = startY + (targetCamY - startY) * ease;
+    draw();
+    if (p < 1) requestAnimationFrame(step);
+    else if (cb) cb();
+  }
+  requestAnimationFrame(step);
+}
+
 // ─── Drawing ───────────────────────────────────────────────────
 const EDGE_COLORS = {
-  divergence: 'rgba(100,120,140,0.45)',
-  hybridisation: 'rgba(230,126,34,0.55)',
-  introgression: 'rgba(155,89,182,0.55)',
+  divergence: 'rgba(100,120,140,__A__)',
+  hybridisation: 'rgba(230,126,34,__A__)',
+  introgression: 'rgba(155,89,182,__A__)',
 };
+
+function edgeColor(type, alpha) {
+  const base = {
+    divergence: [100,120,140],
+    hybridisation: [230,126,34],
+    introgression: [155,89,182],
+  };
+  const c = base[type] || base.divergence;
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
 
 function drawEdge(e) {
   const pts = e.points;
   if (pts.length < 2) return;
 
+  // Check if source/target types are hidden
+  const sNode = DATA.nodes.find(n => n.id === e.source);
+  const tNode = DATA.nodes.find(n => n.id === e.target);
+  if (sNode && hiddenTypes.has(sNode.type)) return;
+  if (tNode && hiddenTypes.has(tNode.type)) return;
+
+  const highlighted = isEdgeHighlighted(e);
+  const alpha = highlighted ? 0.55 : 0.08;
+
   ctx.beginPath();
-  ctx.strokeStyle = EDGE_COLORS[e.type] || EDGE_COLORS.divergence;
+  ctx.strokeStyle = edgeColor(e.type, alpha);
   ctx.lineWidth = (e.type === 'divergence' ? 1.5 : 2) / zoom;
 
   if (e.type === 'introgression') {
@@ -113,13 +338,11 @@ function drawEdge(e) {
     ctx.setLineDash([]);
   }
 
-  // Draw smooth curve through waypoints
   const s0 = worldToScreen(pts[0].x, pts[0].y);
   ctx.moveTo(s0.x, s0.y);
 
   if (pts.length === 2) {
     const s1 = worldToScreen(pts[1].x, pts[1].y);
-    // Bezier with horizontal tangents for hierarchical look
     const mx = (s0.x + s1.x) / 2;
     ctx.bezierCurveTo(mx, s0.y, mx, s1.y, s1.x, s1.y);
   } else {
@@ -133,53 +356,96 @@ function drawEdge(e) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Arrowhead at target
-  const last = worldToScreen(pts[pts.length - 1].x, pts[pts.length - 1].y);
-  const prev = worldToScreen(pts[pts.length - 2].x, pts[pts.length - 2].y);
-  const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-  const aw = 8, ah = 5;
-  ctx.beginPath();
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.moveTo(last.x, last.y);
-  ctx.lineTo(last.x - aw * Math.cos(angle - 0.4), last.y - aw * Math.sin(angle - 0.4));
-  ctx.lineTo(last.x - aw * Math.cos(angle + 0.4), last.y - aw * Math.sin(angle + 0.4));
-  ctx.fill();
+  // Arrowhead
+  if (highlighted) {
+    const last = worldToScreen(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    const prev = worldToScreen(pts[pts.length - 2].x, pts[pts.length - 2].y);
+    const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+    const aw = 8;
+    ctx.beginPath();
+    ctx.fillStyle = edgeColor(e.type, alpha);
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(last.x - aw * Math.cos(angle - 0.4), last.y - aw * Math.sin(angle - 0.4));
+    ctx.lineTo(last.x - aw * Math.cos(angle + 0.4), last.y - aw * Math.sin(angle + 0.4));
+    ctx.fill();
+  }
 }
 
 function drawNode(n) {
+  if (!isNodeVisible(n)) return;
+
   const s = worldToScreen(n.x, n.y);
   const r = (n.type === 'species' ? 14 : n.type === 'population' ? 11 : 8);
-  const sr = r;
+  const highlighted = isNodeHighlighted(n);
+  const isSearchTarget = searchHighlight && n.id === searchHighlight.id;
+  const isFocused = focusedNode && n.id === focusedNode.id;
+  const nodeAlpha = highlighted ? 1.0 : 0.12;
+
+  // Shadow for species/hybrid nodes
+  if (highlighted && (n.type === 'species' || n.type === 'hybrid')) {
+    ctx.save();
+    ctx.shadowColor = n.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'transparent';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Search pulse ring
+  if (isSearchTarget) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r + 10, 0, Math.PI * 2);
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Focus ring
+  if (isFocused) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r + 8, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
   // Glow for hovered
   if (hoveredNode === n) {
     ctx.beginPath();
-    ctx.arc(s.x, s.y, sr + 6, 0, Math.PI * 2);
+    ctx.arc(s.x, s.y, r + 6, 0, Math.PI * 2);
     ctx.fillStyle = n.color + '33';
     ctx.fill();
   }
 
+  // Node circle
+  ctx.globalAlpha = nodeAlpha;
   ctx.beginPath();
-  ctx.arc(s.x, s.y, sr, 0, Math.PI * 2);
+  ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
   ctx.fillStyle = n.color;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Label
-  ctx.fillStyle = '#ccc';
-  const fontSize = Math.max(10, 11);
-  ctx.font = `${fontSize}px 'Segoe UI', system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText(n.label, s.x, s.y + sr + fontSize + 2);
+  // Label – hide strain labels unless hovered, focused, or searched
+  const showLabel = n.type !== 'strain'
+    || hoveredNode === n || isFocused || isSearchTarget
+    || (focusedNode && adjacency[focusedNode.id].has(n.id));
+  if (showLabel) {
+    const fontSize = n.type === 'strain' ? 10 : 12;
+    ctx.font = (n.type === 'species' ? 'bold ' : '') + `${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = highlighted ? '#ddd' : '#555';
+    ctx.fillText(n.label, s.x, s.y + r + fontSize + 3);
+  }
+  ctx.globalAlpha = 1.0;
 }
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  // Edges first
   for (const e of DATA.edges) drawEdge(e);
-  // Nodes on top
   for (const n of DATA.nodes) drawNode(n);
 }
 
@@ -196,22 +462,28 @@ canvas.addEventListener('wheel', (e) => {
   draw();
 }, { passive: false });
 
+let dragMoved = false;
 canvas.addEventListener('mousedown', (e) => {
   dragging = true;
+  dragMoved = false;
   dragStartX = e.clientX; dragStartY = e.clientY;
   camStartX = camX; camStartY = camY;
-  canvas.style.cursor = 'grabbing';
+  canvas.classList.add('grabbing');
 });
+
 canvas.addEventListener('mousemove', (e) => {
   if (dragging) {
-    camX = camStartX - (e.clientX - dragStartX) / zoom;
-    camY = camStartY - (e.clientY - dragStartY) / zoom;
+    const dx = e.clientX - dragStartX, dy = e.clientY - dragStartY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    camX = camStartX - dx / zoom;
+    camY = camStartY - dy / zoom;
     draw();
   }
   // Hover detection
   const w = screenToWorld(e.offsetX, e.offsetY);
   let found = null;
   for (const n of DATA.nodes) {
+    if (!isNodeVisible(n)) continue;
     const dx = n.x - w.x, dy = n.y - w.y;
     if (dx * dx + dy * dy < 400) { found = n; break; }
   }
@@ -220,10 +492,7 @@ canvas.addEventListener('mousemove', (e) => {
     draw();
     if (found) {
       tooltip.style.display = 'block';
-      tooltip.style.left = (e.clientX + 14) + 'px';
-      tooltip.style.top = (e.clientY - 10) + 'px';
-      tooltip.innerHTML = `<strong>${found.label}</strong><br>Type: ${found.type}` +
-        (found.is_hybrid ? '<br>Hybrid: yes' : '');
+      updateTooltip(found, e.clientX, e.clientY);
     } else {
       tooltip.style.display = 'none';
     }
@@ -232,14 +501,133 @@ canvas.addEventListener('mousemove', (e) => {
     tooltip.style.top = (e.clientY - 10) + 'px';
   }
 });
-canvas.addEventListener('mouseup', () => {
+
+canvas.addEventListener('mouseup', (e) => {
   dragging = false;
-  canvas.style.cursor = 'default';
+  canvas.classList.remove('grabbing');
+  // Click-to-focus (only if we didn't drag)
+  if (!dragMoved) {
+    const w = screenToWorld(e.offsetX, e.offsetY);
+    let clicked = null;
+    for (const n of DATA.nodes) {
+      if (!isNodeVisible(n)) continue;
+      const dx = n.x - w.x, dy = n.y - w.y;
+      if (dx * dx + dy * dy < 400) { clicked = n; break; }
+    }
+    if (clicked) {
+      focusedNode = (focusedNode === clicked) ? null : clicked;
+      searchHighlight = null;
+    } else {
+      focusedNode = null;
+    }
+    draw();
+  }
 });
 
-// Init
-centreView();
+function updateTooltip(n, mx, my) {
+  let html = `<div class="tooltip-label" style="color:${n.color}">${n.label}</div>`;
+  const typeLabel = n.type.charAt(0).toUpperCase() + n.type.slice(1);
+  html += `<div class="tooltip-row">Type: <span>${typeLabel}</span></div>`;
+  if (n.is_hybrid) html += `<div class="tooltip-row">Hybrid: <span>Yes</span></div>`;
+  if (n.wild) html += `<div class="tooltip-row">Origin: <span>Wild</span></div>`;
+  else if (n.type === 'species' || n.type === 'population')
+    html += `<div class="tooltip-row">Origin: <span>Domesticated</span></div>`;
+  if (n.fermentation && n.fermentation.length > 0) {
+    html += `<div class="tooltip-row" style="margin-top:4px">Fermentation:</div>`;
+    html += n.fermentation.map(f => `<span class="tooltip-tag">${f}</span>`).join('');
+  }
+  // Show number of connections
+  const connCount = (adjacency[n.id] || new Set()).size;
+  html += `<div class="tooltip-row" style="margin-top:4px;color:#666">${connCount} connection${connCount !== 1 ? 's' : ''}</div>`;
+  tooltip.innerHTML = html;
+  tooltip.style.left = (mx + 14) + 'px';
+  tooltip.style.top = (my - 10) + 'px';
+}
+
+// ─── Legend toggle ───
+document.querySelectorAll('.legend-row').forEach(row => {
+  row.addEventListener('click', () => {
+    const type = row.dataset.type;
+    if (hiddenTypes.has(type)) {
+      hiddenTypes.delete(type);
+      row.classList.remove('dimmed');
+    } else {
+      hiddenTypes.add(type);
+      row.classList.add('dimmed');
+    }
+    draw();
+  });
+});
+
+// ─── Search ───
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = DATA.nodes
+    .filter(n => n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q))
+    .slice(0, 12);
+  if (matches.length === 0) { searchResults.style.display = 'none'; return; }
+  const typeColors = { species: '#2e8b57', hybrid: '#e67e22', population: '#3498db', strain: '#f39c12' };
+  searchResults.innerHTML = matches.map(n =>
+    `<div class="search-item" data-id="${n.id}">${n.label}` +
+    `<span class="type-badge" style="background:${typeColors[n.type] || '#666'}">${n.type}</span></div>`
+  ).join('');
+  searchResults.style.display = 'block';
+  // Attach click handlers
+  searchResults.querySelectorAll('.search-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const node = DATA.nodes.find(n => n.id === item.dataset.id);
+      if (node) {
+        searchHighlight = node;
+        focusedNode = null;
+        panToNode(node);
+        searchResults.style.display = 'none';
+        searchInput.value = node.label;
+        searchInput.blur();
+      }
+    });
+  });
+});
+
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    searchInput.value = '';
+    searchResults.style.display = 'none';
+    searchHighlight = null;
+    draw();
+  }
+  if (e.key === 'Enter') {
+    const first = searchResults.querySelector('.search-item');
+    if (first) first.click();
+  }
+});
+
+// Close search results on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#search-container')) {
+    searchResults.style.display = 'none';
+  }
+});
+
+// Keyboard shortcut: / to focus search
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== searchInput) {
+    e.preventDefault();
+    searchInput.focus();
+  }
+  if (e.key === 'Escape') {
+    focusedNode = null;
+    searchHighlight = null;
+    activeFermentation = null;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    draw();
+  }
+});
+
+// Init – resize first so W/H are defined for centreView
 resize();
+centreView();
+draw();
 </script>
 </body>
 </html>
